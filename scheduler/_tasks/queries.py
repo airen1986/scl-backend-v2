@@ -13,17 +13,30 @@ get_pending_tasks_older_than = """SELECT TaskId, TaskUID, TaskURL, ModelId
         AND (unixepoch(datetime('now')) - unixepoch(SubmittedAt)) > ?"""
 
 
+get_stuck_locked_models = """SELECT S_Models.ModelId,
+        (SELECT TaskId FROM ST_TaskRecords
+         WHERE ST_TaskRecords.ModelId = S_Models.ModelId
+         ORDER BY TaskId DESC LIMIT 1) AS LatestTaskId
+        FROM S_Models
+        WHERE ifnull(json_extract(ifnull(S_Models.JsonData, '{}'), '$.IsLocked'), 0) = 1
+        AND NOT EXISTS (
+            SELECT 1 FROM ST_TaskRecords
+            WHERE ST_TaskRecords.ModelId = S_Models.ModelId
+            AND Status IN ('RUNNING', 'STARTED', 'PENDING') COLLATE NOCASE
+        )"""
+
+
 update_task_log = """UPDATE ST_TaskLogs
                         SET LogText =  COALESCE(LogText, '') || char(10) || ?,
                          LastUpdated = datetime('now')
                         WHERE TaskId = ?"""
 
-get_long_running_started_tasks = """SELECT TaskId, TaskUID, TaskURL, ModelId,
-        ifnull(json_extract(ifnull(JSONData, '{}'), '$.max_run_seconds'), 86400) as max_run_seconds
+get_long_running_started_tasks = """SELECT TaskId, SubmittedBy,
+        ifnull(json_extract(ifnull(JSONData, '{}'), '$.max_run_seconds'), ?) as max_run_seconds
         FROM ST_TaskRecords
         WHERE Status IN ('STARTED', 'RUNNING') COLLATE NOCASE
         AND (unixepoch(datetime('now')) - unixepoch(SubmittedAt)) >
-            ifnull(json_extract(ifnull(JSONData, '{}'), '$.max_run_seconds'), 86400)"""
+            ifnull(json_extract(ifnull(JSONData, '{}'), '$.max_run_seconds'), ?)"""
 
 delete_duplicate_queries = """DELETE FROM S_SQLHistory
                                 WHERE HistoryId not in
