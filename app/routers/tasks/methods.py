@@ -238,7 +238,10 @@ def get_running_tasks(cursor, user_email: str, background_tasks: BackgroundTasks
             logger.error(f"Error updating status for task {task_id}: {e}")
             current_status = task_status  # Fall back to existing status if update fails
         if current_status not in ("RUNNING", "STARTED", "PENDING"):
-            background_tasks.add_task(update_task_output_and_logs, None, task_id)
+            try:
+                update_task_output_and_logs(cursor, task_id)
+            except Exception as e:
+                logger.error(f"Error releasing lock for completed task {task_id}: {e}")
             continue  # Only include tasks that are still running
         task_list.append(
             {
@@ -440,6 +443,8 @@ def get_task_details(cursor, task_id: int, user_email: str, model_name: str, pro
     if status in ("RUNNING", "STARTED", "PENDING"):
         current_status = _update_task_status(cursor, task_id, task_uid, task_url, status)
         log = update_task_log(cursor, task_id)
+        if current_status not in ("RUNNING", "STARTED", "PENDING"):
+            update_task_output_and_logs(cursor, task_id)
     else:
         log = cursor.execute(run_queries.get_task_log, (task_id,)).fetchone()
         log = log[0] if log else "No logs found for this task."
