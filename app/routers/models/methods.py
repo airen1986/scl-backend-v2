@@ -197,6 +197,13 @@ def delete_model(cursor, user_email: str, model_name: str, project_name: str):
 
 
 def create_model_backup(cursor, user_email: str, model_name: str, project_name: str, backup_comment: str):
+    if not backup_comment or backup_comment.strip() == "":
+        raise HTTPException(status_code=400, detail="Backup comment cannot be empty")
+    if backup_comment.strip() == "SYSTEM GENERATED BACKUP":
+        raise HTTPException(
+            status_code=400,
+            detail="Backup comment cannot be 'SYSTEM GENERATED BACKUP', it is reserved for system generated backups",
+        )
     model_id, model_path = get_model_id_and_path(cursor, model_name, project_name, user_email)
     if not model_id:
         raise HTTPException(status_code=404, detail="Model not found")

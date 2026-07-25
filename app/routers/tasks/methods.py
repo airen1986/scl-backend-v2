@@ -562,7 +562,6 @@ def get_diff(cursor, task_id: int, user_email: str, model_name: str, project_nam
             detail=f"Model file for task {task_id} does not exist at {task_model_path}.",
         )
 
-    print(SQLITE_DIFF_TOOL)
     if not os.path.exists(SQLITE_DIFF_TOOL):
         raise HTTPException(
             status_code=500,

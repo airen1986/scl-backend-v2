@@ -90,3 +90,16 @@ delete_task_history = """DELETE FROM ST_TaskRecords
 delete_task_logs = """DELETE FROM ST_TaskLogs
                         WHERE TaskId NOT IN (SELECT TaskId FROM ST_TaskRecords)
                         RETURNING 1;"""
+
+
+get_system_generated_backup = """SELECT BackupId, BackupPath
+                                        FROM S_ModelBackups
+                                        WHERE ModelId = ?
+                                        AND BackupText = ?
+                                        ORDER BY BackupId DESC
+                                        LIMIT 1"""
+
+insert_model_backup = """INSERT INTO S_ModelBackups (ModelId, BackupPath, BackupText)
+                            VALUES (?, ?, ?)"""
+
+delete_backup_by_id = "DELETE FROM S_ModelBackups WHERE BackupId = ?"
