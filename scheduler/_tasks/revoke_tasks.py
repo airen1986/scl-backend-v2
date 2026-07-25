@@ -7,8 +7,8 @@ from app.config import TASK_PROCESS_TIMEOUT_MINUTES
 from app.connection import master_connection
 from app.logging_config import get_logger
 from app.routers.tasks.methods import update_task_output_and_logs
-from app.routers.tasks.queries import insert_task_notifications, update_task_status
-from scheduler._tasks.queries import get_pending_tasks_older_than, update_task_log
+from app.routers.tasks.queries import insert_task_notifications, update_model_lock, update_task_status
+from scheduler._tasks.queries import get_pending_tasks_older_than, get_stuck_locked_models, update_task_log
 
 logger = get_logger(__name__)
 
@@ -64,19 +64,47 @@ def _revoke_and_update(task_id, task_uid, task_url, model_id):
         logger.error(f"Failed to update status for revoked task {task_id}: {e}")
 
 
+def _release_stuck_lock(model_id, latest_task_id):
+    try:
+        with master_connection() as cursor:
+            cursor.execute(update_model_lock, (0, model_id))
+            logger.info(f"Released stuck lock for model {model_id} (latest task: {latest_task_id})")
+            if latest_task_id:
+                log_message = (
+                    "Model lock was automatically released by the scheduler. "
+                    "The model was found locked with no active tasks running."
+                )
+                cursor.execute(update_task_log, (log_message, latest_task_id))
+            cursor.intermediate_commit()
+    except Exception as e:
+        logger.error(f"Failed to release stuck lock for model {model_id}: {e}")
+
+
 async def main(params: dict | None = None) -> dict:
     del params
 
     with master_connection() as cursor:
         pending_tasks = cursor.execute(get_pending_tasks_older_than, (PENDING_TIMEOUT_SECONDS,)).fetchall()
-
-    if not pending_tasks:
-        return {"revoked_count": 0, "checked_count": 0}
+        stuck_locked_models = cursor.execute(get_stuck_locked_models).fetchall()
 
     revoked_count = 0
     for task_id, task_uid, task_url, model_id in pending_tasks:
         await asyncio.to_thread(_revoke_and_update, task_id, task_uid, task_url, model_id)
         revoked_count += 1
 
-    logger.info(f"Revoked {revoked_count}/{len(pending_tasks)} stale PENDING tasks")
-    return {"revoked_count": revoked_count, "checked_count": len(pending_tasks)}
+    if revoked_count:
+        logger.info(f"Revoked {revoked_count}/{len(pending_tasks)} stale PENDING tasks")
+
+    unlocked_count = 0
+    for model_id, latest_task_id in stuck_locked_models:
+        await asyncio.to_thread(_release_stuck_lock, model_id, latest_task_id)
+        unlocked_count += 1
+
+    if unlocked_count:
+        logger.info(f"Released stuck locks on {unlocked_count} model(s)")
+
+    return {
+        "revoked_count": revoked_count,
+        "checked_count": len(pending_tasks),
+        "unlocked_count": unlocked_count,
+    }
