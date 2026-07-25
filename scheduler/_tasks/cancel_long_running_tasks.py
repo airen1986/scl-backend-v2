@@ -26,7 +26,8 @@ async def main(params: dict | None = None) -> dict:
     del params
 
     with master_connection() as cursor:
-        long_running_tasks = cursor.execute(get_long_running_started_tasks, (DEFAULT_MAX_RUN_SECONDS,)).fetchall()
+        long_running_tasks = cursor.execute(get_long_running_started_tasks, 
+                                            (DEFAULT_MAX_RUN_SECONDS, DEFAULT_MAX_RUN_SECONDS)).fetchall()
 
     if not long_running_tasks:
         return {"cancelled_count": 0, "checked_count": 0}
