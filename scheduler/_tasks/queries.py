@@ -31,7 +31,8 @@ update_task_log = """UPDATE ST_TaskLogs
                          LastUpdated = datetime('now')
                         WHERE TaskId = ?"""
 
-get_long_running_started_tasks = """SELECT TaskId, SubmittedBy
+get_long_running_started_tasks = """SELECT TaskId, SubmittedBy,
+        ifnull(json_extract(ifnull(JSONData, '{}'), '$.max_run_seconds'), ?) as max_run_seconds
         FROM ST_TaskRecords
         WHERE Status IN ('STARTED', 'RUNNING') COLLATE NOCASE
         AND (unixepoch(datetime('now')) - unixepoch(SubmittedAt)) >

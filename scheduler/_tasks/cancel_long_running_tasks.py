@@ -11,13 +11,11 @@ logger = get_logger(__name__)
 DEFAULT_MAX_RUN_SECONDS = int(DEFAULT_MAX_RUN_HOURS * 3600)
 
 
-def _cancel_long_running(task_id, submitted_by):
+def _cancel_long_running(task_id, submitted_by, max_run_seconds):
     try:
         with master_connection() as cursor:
             cancel_task(cursor, task_id, submitted_by)
-            update_log_text = (
-                f"Task {task_id} cancelled due to exceeding max run time of {DEFAULT_MAX_RUN_SECONDS} seconds."
-            )
+            update_log_text = f"Task {task_id} cancelled due to exceeding max run time of {max_run_seconds} seconds."
             cursor.execute(update_task_log, (update_log_text, task_id))
             cursor.intermediate_commit()
     except Exception as e:
@@ -34,8 +32,8 @@ async def main(params: dict | None = None) -> dict:
         return {"cancelled_count": 0, "checked_count": 0}
 
     cancelled_count = 0
-    for task_id, submitted_by in long_running_tasks:
-        await asyncio.to_thread(_cancel_long_running, task_id, submitted_by)
+    for task_id, submitted_by, max_run_seconds in long_running_tasks:
+        await asyncio.to_thread(_cancel_long_running, task_id, submitted_by, max_run_seconds)
         cancelled_count += 1
 
     logger.info(f"Cancelled {cancelled_count}/{len(long_running_tasks)} long-running tasks")
