@@ -54,12 +54,12 @@ def _revoke_and_update(task_id, task_uid, task_url, model_id):
                 )
                 cursor.execute(insert_task_notifications, insert_task_tuple)
                 cursor.intermediate_commit()
-            update_task_output_and_logs(cursor, task_id)
-            task_log_message = (
-                f"Task was automatically revoked after being in PENDING state "
-                f"for over {PENDING_TIMEOUT_SECONDS} seconds."
-            )
-            cursor.execute(update_task_log, (task_log_message, task_id))
+                update_task_output_and_logs(cursor, task_id)
+                task_log_message = (
+                    f"Task was automatically revoked after being in PENDING state "
+                    f"for over {PENDING_TIMEOUT_SECONDS} seconds."
+                )
+                cursor.execute(update_task_log, (task_log_message, task_id))
     except Exception as e:
         logger.error(f"Failed to update status for revoked task {task_id}: {e}")
 
