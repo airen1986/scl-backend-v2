@@ -201,7 +201,7 @@ admin_role = {"modules": [module[0] for module in module_data], "homePage": "hom
 user_role = {"modules": [module[0] for module in module_data if module[0] != "Scheduler"], "homePage": "home-page.html"}
 
 user_roles = [
-    (1, "Admin", "Administrator with full access", json.dumps(admin_role)),
+    (1, "SUPER_ADMIN", "Administrator with full access", json.dumps(admin_role)),
     (2, "User", "Regular user with limited access", json.dumps(user_role)),
     (3, "PowerUser", "Power user with extended access", json.dumps(user_role)),
 ]
