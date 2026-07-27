@@ -232,59 +232,6 @@ def share_model(
     return model_schemas.MessageResponse(message="Model shared successfully with the target user")
 
 
-@router.post("/get-notifications", response_model=model_schemas.getNotificationsResponse)
-def get_user_notifications(user_data: tuple = Depends(_get_user_from_token)) -> model_schemas.getNotificationsResponse:
-    """Return incoming model-sharing notifications for the authenticated user."""
-    useremail, _display_name, _role_name = user_data
-
-    with master_connection() as cursor:
-        notifications = model_methods.get_user_notifications(cursor, useremail)
-
-    return model_schemas.getNotificationsResponse(notifications=notifications)
-
-
-@router.post("/mark-notification-read", response_model=model_schemas.MessageResponse)
-def mark_notification_read(
-    request: model_schemas.markNotificationsReadRequest, user_data: tuple = Depends(_get_user_from_token)
-) -> model_schemas.MessageResponse:
-    """Mark a notification as read for the authenticated user."""
-    useremail, _display_name, _role_name = user_data
-
-    with master_connection() as cursor:
-        model_methods.mark_notification_read(cursor, request.notification_id, useremail)
-
-    return model_schemas.MessageResponse(message="Notification marked as read successfully")
-
-
-@router.post("/accept", response_model=model_schemas.MessageResponse)
-def accept_model_share(
-    request: model_schemas.acceptModelRequest, user_data: tuple = Depends(_get_user_from_token)
-) -> model_schemas.MessageResponse:
-    """
-    Accept or reject a model-sharing request and optionally create a personal copy.
-
-    Parameters:
-        request (acceptModelRequest): Contains `notification_id`, `accept` (boolean), `model_name`, `project_name`, and `create_new_copy` (boolean).
-
-    Returns:
-        MessageResponse: Confirmation message that the share request response was recorded.
-    """
-    useremail, _display_name, role_name = user_data
-    notification_id = request.notification_id
-    accept = request.accept
-    model_name = request.model_name
-    project_name = request.project_name
-    create_new_copy = request.create_new_copy
-
-    with master_connection() as cursor:
-        check_module_access(cursor, role_name, this_api)
-        model_methods.accept_model_share(
-            cursor, notification_id, accept, model_name, project_name, create_new_copy, useremail
-        )
-
-    return model_schemas.MessageResponse(message="Model share request response recorded successfully")
-
-
 @router.post("/table-groups", response_model=model_schemas.tableGroupResponse)
 def get_table_groups(
     request: model_schemas.modelRequest, user_data: tuple = Depends(_get_user_from_token)

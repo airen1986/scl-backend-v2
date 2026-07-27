@@ -116,8 +116,8 @@ All routes accept **POST** only and are prefixed with `/api`.
 
 | Route | Description |
 |---|---|
-| `POST /api/notifications/get_notifications` | List incoming share notifications |
-| `POST /api/notifications/mark_notifications_read` | Mark a notification as read |
+| `POST /api/notifications/get` | List incoming notifications |
+| `POST /api/notifications/mark_read` | Mark a notification as read |
 | `POST /api/notifications/accept` | Accept or reject a share request |
 
 ### Projects (`/api/projects`)
