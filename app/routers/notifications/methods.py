@@ -49,6 +49,8 @@ def get_user_notifications(cursor, user_email: str, get_all: bool = False):
 
 def mark_notification_read(cursor, notification_id: int, user_email: str):
     cursor.execute(notification_queries.mark_notification_read, (notification_id, user_email))
+    if cursor.rowcount() == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
 
 
 def accept_model_share(
@@ -89,7 +91,7 @@ def accept_model_share(
         return
 
     from_user_email = notification_row[0]
-    notification_params = json.loads(notification_row[1])
+    notification_params = json.loads(notification_row[1]) if notification_row[1] else {}
     model_id = notification_params.get("model_id")
     model_name = notification_params.get("model_name")
     project_name = notification_params.get("project_name")
