@@ -112,8 +112,13 @@ All routes accept **POST** only and are prefixed with `/api`.
 | `POST /api/models/get-backups` | List backup snapshots for a model |
 | `POST /api/models/restore` | Restore a model from a backup |
 | `POST /api/models/share` | Share a model with another user |
-| `POST /api/models/get-notifications` | List incoming share notifications |
-| `POST /api/models/accept` | Accept or reject a share request |
+### Notifications (`/api/notifications`)
+
+| Route | Description |
+|---|---|
+| `POST /api/notifications/get` | List incoming notifications |
+| `POST /api/notifications/mark_read` | Mark a notification as read |
+| `POST /api/notifications/accept` | Accept or reject a share request |
 
 ### Projects (`/api/projects`)
 
