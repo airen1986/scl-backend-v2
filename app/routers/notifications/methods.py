@@ -136,8 +136,12 @@ def accept_model_share(
             insert_user_models,
             (model_id, user_email, project_id, access_level, new_model_name),
         )
-    accept_params = {"model_name": new_model_name, "project_name": new_project_name, 
-                     "create_copy": create_copy, "Status": "Accepted"}
+    accept_params = {
+        "model_name": new_model_name,
+        "project_name": new_project_name,
+        "create_copy": create_copy,
+        "Status": "Accepted",
+    }
     cursor.execute(
         notification_queries.accept_notification, (1, json.dumps(accept_params), notification_id, user_email)
     )
