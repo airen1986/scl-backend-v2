@@ -35,7 +35,7 @@ def mark_notification_read(
 
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
-        notification_methods.mark_notification_read(cursor, request.notification_id, useremail)
+        notification_methods.mark_notification_read(cursor, request.notification_ids, useremail)
 
     return notification_schemas.MessageResponse(message="Notification marked as read successfully")
 

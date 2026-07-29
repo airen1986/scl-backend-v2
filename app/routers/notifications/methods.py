@@ -23,6 +23,7 @@ def get_user_notifications(cursor, user_email: str, get_all: bool = False):
         params,
         is_read,
         is_accepted,
+        created_at,
     ) in rows:
         params_dict = json.loads(params) if params else {}
         project_name = params_dict.get("project_name")
@@ -42,15 +43,17 @@ def get_user_notifications(cursor, user_email: str, get_all: bool = False):
                 "is_read": is_read,
                 "is_accepted": is_accepted,
                 "notification_level": notification_level,
+                "created_at": created_at,
             }
         )
     return notifications
 
 
-def mark_notification_read(cursor, notification_id: int, user_email: str):
-    cursor.execute(notification_queries.mark_notification_read, (notification_id, user_email))
-    if cursor.rowcount() == 0:
-        raise HTTPException(status_code=404, detail="Notification not found")
+def mark_notification_read(cursor, notification_ids: list[int], user_email: str):
+    for notification_id in notification_ids:
+        row = cursor.execute(notification_queries.mark_notification_read, (notification_id, user_email)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Notification not found: {notification_id}")
 
 
 def accept_model_share(
@@ -87,7 +90,8 @@ def accept_model_share(
         raise HTTPException(status_code=404, detail=f"Notification not found; {user_email}, {notification_id}")
 
     if not accept:
-        cursor.execute(notification_queries.accept_notification, (-1, notification_id, user_email))
+        accept_params = json.dumps({"Status": "Rejected"})
+        cursor.execute(notification_queries.accept_notification, (-1, accept_params, notification_id, user_email))
         return
 
     from_user_email = notification_row[0]
@@ -132,4 +136,12 @@ def accept_model_share(
             insert_user_models,
             (model_id, user_email, project_id, access_level, new_model_name),
         )
-    cursor.execute(notification_queries.accept_notification, (1, notification_id, user_email))
+    accept_params = {
+        "model_name": new_model_name,
+        "project_name": new_project_name,
+        "create_copy": create_copy,
+        "Status": "Accepted",
+    }
+    cursor.execute(
+        notification_queries.accept_notification, (1, json.dumps(accept_params), notification_id, user_email)
+    )

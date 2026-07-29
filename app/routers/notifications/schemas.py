@@ -13,6 +13,7 @@ class notificationBaseModel(BaseModel):
     is_read: int
     is_accepted: int
     task_id: int | None
+    created_at: str
 
 
 class getNotificationsRequest(BaseModel):
@@ -24,7 +25,7 @@ class getNotificationsResponse(BaseModel):
 
 
 class markNotificationsReadRequest(BaseModel):
-    notification_id: int
+    notification_ids: list[int]
 
 
 class acceptModelRequest(BaseModel):
