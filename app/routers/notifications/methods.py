@@ -90,7 +90,7 @@ def accept_model_share(
         raise HTTPException(status_code=404, detail=f"Notification not found; {user_email}, {notification_id}")
 
     if not accept:
-        accept_params = "Rejected"
+        accept_params = json.dumps({"Status": "Rejected"})
         cursor.execute(notification_queries.accept_notification, (-1, accept_params, notification_id, user_email))
         return
 
@@ -136,7 +136,8 @@ def accept_model_share(
             insert_user_models,
             (model_id, user_email, project_id, access_level, new_model_name),
         )
-    accept_params = {"model_name": new_model_name, "project_name": new_project_name, "create_copy": create_copy}
+    accept_params = {"model_name": new_model_name, "project_name": new_project_name, 
+                     "create_copy": create_copy, "Status": "Accepted"}
     cursor.execute(
         notification_queries.accept_notification, (1, json.dumps(accept_params), notification_id, user_email)
     )
