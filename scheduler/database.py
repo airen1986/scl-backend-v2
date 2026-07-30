@@ -86,9 +86,7 @@ update_cron_schedule_description = """UPDATE SJ_ScheduledJobs
 
 
 def _ensure_scheduled_job_column(cursor, column_name: str, column_type: str) -> None:
-    existing_columns = {
-        row[1] for row in cursor.execute("PRAGMA table_info(SJ_ScheduledJobs)").fetchall()
-    }
+    existing_columns = {row[1] for row in cursor.execute("PRAGMA table_info(SJ_ScheduledJobs)").fetchall()}
     if column_name not in existing_columns:
         cursor.execute(f"ALTER TABLE SJ_ScheduledJobs ADD COLUMN {column_name} {column_type}")
 
@@ -161,13 +159,21 @@ def init_scheduler_db() -> None:
         # Insert schedules for tasks
         for schedule in task_schedules:
             # schedule: [TaskName, ScheduleType, CronExpression, IsEnabled, ScheduleDescription, TaskParams]
-            task_name, schedule_type, cron_expr, \
-                is_enabled, schedule_description, task_params = schedule
+            task_name, schedule_type, cron_expr, is_enabled, schedule_description, task_params = schedule
             if schedule_type == "cron":
                 schedule_description = get_cron_description(cron_expr) or schedule_description
             cursor.execute(
                 insert_scheduled_job,
-                (schedule_type, cron_expr, is_enabled, schedule_description, task_params, task_name, schedule_type, cron_expr),
+                (
+                    schedule_type,
+                    cron_expr,
+                    is_enabled,
+                    schedule_description,
+                    task_params,
+                    task_name,
+                    schedule_type,
+                    cron_expr,
+                ),
             )
 
         refresh_cron_schedule_descriptions(cursor)
