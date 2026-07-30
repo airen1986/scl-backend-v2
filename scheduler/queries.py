@@ -1,6 +1,6 @@
-get_jobs = """ SELECT sj.ScheduleId, t.TaskId, t.TaskName, t.TaskParams,
+get_jobs = """ SELECT sj.ScheduleId, t.TaskId, t.TaskName, sj.TaskParams,
                 sj.ScheduleType, sj.CronExpression, t.MaxRetries, t.TimeoutSeconds,
-                sj.LastRunAt, sj.NextRunAt
+                sj.LastRunAt, sj.NextRunAt, sj.CreatedBy
                 FROM SJ_ScheduledJobs sj
                 JOIN SJ_TaskMaster t ON sj.TaskId = t.TaskId
                 WHERE sj.IsEnabled = 1"""
