@@ -165,6 +165,7 @@ async def run_job(job, is_startup: bool = False) -> None:
         _,
         last_run_at,
         next_run_at_str,
+        _created_by,
     ) = job
 
     try:
