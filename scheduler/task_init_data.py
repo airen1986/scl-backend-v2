@@ -9,6 +9,7 @@ during DB initialization.
 task_definitions = [
     ["celery_task_update", "Celery task update job", 3, 300],
     ["cleanup_temp_files", "Temporary files cleanup and database vacuum job", 3, 300],
+    ["run_model_task", "Submit a model task for execution", 0, 300],
     ["revoke_stale_tasks", "Revoke tasks stuck in PENDING state for more than an hour", 3, 300],
     ["cancel_long_running_tasks", "Cancel tasks in STARTED state exceeding max run time", 3, 300],
 ]

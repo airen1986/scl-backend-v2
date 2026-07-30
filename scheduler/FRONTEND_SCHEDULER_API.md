@@ -14,6 +14,8 @@ The Scheduler system manages recurring background jobs for the Supply Chain Lite
 
 Example: `2026-07-30T07:00:00Z`
 
+**API/Database Timestamp Boundary:** Scheduler database timestamp columns are stored as UTC text in SQLite `datetime('now')` / `scheduler/runner.py` format: `YYYY-MM-DD HH:MM:SS` with no timezone suffix. `scheduler/runner.py` parses this format with `datetime.strptime(..., "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)` and writes it with `strftime("%Y-%m-%d %H:%M:%S")`. The future `/api/scheduler/*` router must explicitly deserialize incoming UTC ISO 8601 API values before validation, storage, or scheduler processing, store database values in the scheduler DB format, and serialize database values back to UTC ISO 8601 strings for every API response.
+
 ---
 
 ## Database Schema
@@ -28,8 +30,8 @@ Example: `2026-07-30T07:00:00Z`
 | MaxRetries | INTEGER | Max retry attempts on failure (default: 3) |
 | TimeoutSeconds | INTEGER | Max execution time in seconds (default: 300) |
 | JSONData | TEXT | Extensible JSON metadata |
-| CreatedAt | TEXT | UTC ISO datetime |
-| UpdatedAt | TEXT | UTC ISO datetime |
+| CreatedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) |
+| UpdatedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) |
 
 ### SJ_ScheduledJobs (Schedules)
 
@@ -43,12 +45,12 @@ Example: `2026-07-30T07:00:00Z`
 | CronExpression | TEXT | Standard cron expression (minute hour dom month dow) |
 | IsEnabled | INTEGER | 1 = active, 0 = disabled |
 | IsRunning | INTEGER | 1 = currently executing, 0 = idle |
-| LastRunAt | TEXT | UTC ISO datetime of last execution |
-| NextRunAt | TEXT | UTC ISO datetime of next scheduled run |
+| LastRunAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) of last execution |
+| NextRunAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) of next scheduled run |
 | CreatedBy | TEXT | User who created the schedule (nullable for seeded data) |
 | JSONData | TEXT | Extensible JSON metadata |
-| CreatedAt | TEXT | UTC ISO datetime |
-| UpdatedAt | TEXT | UTC ISO datetime |
+| CreatedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) |
+| UpdatedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) |
 
 ### SJ_JobExecutions (Execution Log)
 
@@ -59,8 +61,8 @@ Example: `2026-07-30T07:00:00Z`
 | TaskId | INTEGER (FK) | Linked task |
 | TaskName | TEXT | Denormalized task name |
 | Status | TEXT | `running`, `success`, or `failed` |
-| StartedAt | TEXT | UTC ISO datetime |
-| CompletedAt | TEXT | UTC ISO datetime (null if still running) |
+| StartedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`) |
+| CompletedAt | TEXT | UTC DB timestamp (`YYYY-MM-DD HH:MM:SS`, null if still running) |
 | DurationSeconds | REAL | Execution time in seconds |
 | RetryCount | INTEGER | Number of retries attempted |
 | ErrorMessage | TEXT | Error details if failed |
@@ -75,6 +77,7 @@ Example: `2026-07-30T07:00:00Z`
 |-----------|-------------|--------------|---------------|
 | `celery_task_update` | Updates task statuses from Celery broker | `* * * * *` (every minute) | cron |
 | `cleanup_temp_files` | Cleans temp files, logs, vacuums DBs | `0 * * * *` (hourly) | cron |
+| `run_model_task` | Submits a model task for execution | none | user-created |
 | `revoke_stale_tasks` | Revokes PENDING tasks stuck > timeout | `*/5 * * * *` (every 5 min) | cron |
 | `cancel_long_running_tasks` | Cancels tasks exceeding max run time | `*/5 * * * *` (every 5 min) | cron |
 
@@ -527,8 +530,9 @@ Provide a UI helper for building cron expressions:
 2. **Polling interval:** Default 60 seconds. The scheduler checks for due jobs every N seconds.
 3. **Startup jobs:** `run_at_startup` tasks execute immediately when scheduler starts, before entering main loop.
 4. **Auto-disable:** `run_once` schedules are automatically disabled (IsEnabled -> 0) after execution.
-5. **Next run calculation:** For cron schedules, `NextRunAt` is computed from the cron expression after each successful run and when a cron schedule is created, edited, or re-enabled.
-6. **Concurrency:** Multiple due jobs run concurrently via `asyncio.gather`.
-7. **Retry logic:** Failed tasks retry with exponential backoff (2^retry_count seconds).
-8. **Running guard:** A schedule cannot execute if `IsRunning = 1` (prevents overlapping runs).
-9. **Cleanup task** also handles: vacuuming SQLite DBs, deleting old execution logs, cleaning SQL history, and creating system backups.
+5. **One-time timing:** `run_once` schedules execute only when their `NextRunAt` time has been reached or passed.
+6. **Next run calculation:** For cron schedules, `NextRunAt` is computed from the cron expression after each successful run and when a cron schedule is created, edited, or re-enabled.
+7. **Concurrency:** Multiple due jobs run concurrently via `asyncio.gather`.
+8. **Retry logic:** Failed tasks retry with exponential backoff (2^retry_count seconds).
+9. **Running guard:** A schedule cannot execute if `IsRunning = 1` (prevents overlapping runs).
+10. **Cleanup task** also handles: vacuuming SQLite DBs, deleting old execution logs, cleaning SQL history, and creating system backups.

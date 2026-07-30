@@ -92,7 +92,7 @@ def parse_last_run_at(last_run_at: str | None, job_name: str) -> datetime | None
 
 
 async def execute_single_task(
-    task_name: str, task_params: str, max_retries: int
+    task_name: str, task_params: str, max_retries: int, created_by: str | None = None
 ) -> tuple[bool, dict | None, str | None]:
     retry_count = 0
     last_error = None
@@ -100,6 +100,8 @@ async def execute_single_task(
     while retry_count <= max_retries:
         try:
             params = json.loads(task_params) if task_params else {}
+            if task_name == "run_model_task":
+                params["user_email"] = created_by
             logger.info("Executing task '%s' (attempt %d/%d)", task_name, retry_count + 1, max_retries + 1)
             result = await run_task(task_name, params)
             return True, result, None
@@ -113,7 +115,14 @@ async def execute_single_task(
     return False, None, last_error
 
 
-async def execute_task_job(schedule_id: int, task_id: int, task_name: str, task_params: str, max_retries: int) -> bool:
+async def execute_task_job(
+    schedule_id: int,
+    task_id: int,
+    task_name: str,
+    task_params: str,
+    max_retries: int,
+    created_by: str | None = None,
+) -> bool:
     """
     Execute a single task job.
 
@@ -127,7 +136,7 @@ async def execute_task_job(schedule_id: int, task_id: int, task_name: str, task_
         logger.warning("Schedule %d ('%s') is already running, skipping execution", schedule_id, task_name)
         return False
 
-    success, result, error = await execute_single_task(task_name, task_params, max_retries)
+    success, result, error = await execute_single_task(task_name, task_params, max_retries, created_by)
 
     completed_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     duration = (
@@ -165,7 +174,7 @@ async def run_job(job, is_startup: bool = False) -> None:
         _,
         last_run_at,
         next_run_at_str,
-        _created_by,
+        created_by,
     ) = job
 
     try:
@@ -181,6 +190,12 @@ async def run_job(job, is_startup: bool = False) -> None:
             # Only run if never executed before
             if last_run is not None:
                 return
+            next_run_at = parse_last_run_at(next_run_at_str, task_name)
+            if next_run_at is None:
+                logger.warning("run_once schedule %d ('%s') has no valid NextRunAt; skipping", schedule_id, task_name)
+                return
+            if datetime.now(timezone.utc) < next_run_at:
+                return
         elif schedule_type == "cron":
             next_run_at = parse_last_run_at(next_run_at_str, task_name)
             if not is_job_due(next_run_at, cron_expr, last_run):
@@ -189,7 +204,7 @@ async def run_job(job, is_startup: bool = False) -> None:
         now = datetime.now(timezone.utc)
         now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-        job_status = await execute_task_job(schedule_id, task_id, task_name, task_params, max_retries)
+        job_status = await execute_task_job(schedule_id, task_id, task_name, task_params, max_retries, created_by)
 
         if job_status:
             if schedule_type == "cron":
