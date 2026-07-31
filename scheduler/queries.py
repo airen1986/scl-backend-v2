@@ -5,9 +5,6 @@ get_jobs = """ SELECT sj.ScheduleId, t.TaskId, t.TaskName, sj.TaskParams,
                 JOIN SJ_TaskMaster t ON sj.TaskId = t.TaskId
                 WHERE sj.IsEnabled = 1"""
 
-disable_schedule = """UPDATE SJ_ScheduledJobs SET IsEnabled = 0,
-                      UpdatedAt = datetime('now') WHERE ScheduleId = ?"""
-
 update_schedule_run_time = """UPDATE SJ_ScheduledJobs SET LastRunAt = ?, NextRunAt = ?,
                               UpdatedAt = datetime('now') WHERE ScheduleId = ?"""
 

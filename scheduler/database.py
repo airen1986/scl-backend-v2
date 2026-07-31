@@ -75,8 +75,6 @@ insert_scheduled_job = """INSERT INTO SJ_ScheduledJobs
     AND NOT EXISTS (
         SELECT 1 FROM SJ_ScheduledJobs sj
         WHERE sj.TaskId = t.TaskId
-        AND sj.ScheduleType = ?
-        AND COALESCE(sj.CronExpression, '') = COALESCE(?, '')
     )"""
 
 update_cron_schedule_description = """UPDATE SJ_ScheduledJobs
@@ -170,9 +168,7 @@ def init_scheduler_db() -> None:
                     is_enabled,
                     schedule_description,
                     task_params,
-                    task_name,
-                    schedule_type,
-                    cron_expr,
+                    task_name
                 ),
             )
 

@@ -188,13 +188,17 @@ insert_module = """INSERT INTO S_Modules (ModuleName, ModuleDescription, ModuleP
                         SELECT 1 FROM S_Modules WHERE ModuleName = ?
                     )"""
 
+update_module_path = """UPDATE S_Modules
+                        SET ModulePath = ?
+                        WHERE ModuleName = ?"""
+
 module_data = [
     ("Models", "Create and manage data models", "/api/models", "home-page.html"),
     ("Projects", "Organize models into projects and manage access", "/api/projects", "home-page.html"),
     ("SQLClient", "Run ad-hoc SQL queries against your data warehouse", "/api/sql-client", "sql-client.html"),
     ("Tables", "CRUD operations for tables", "/api/tables", "table.html"),
     ("Tasks", "Monitor and manage long-running tasks", "/api/tasks", "task-details.html"),
-    ("Scheduler", "Schedule recurring tasks and manage schedules", "/api/schedules", "scheduler.html"),
+    ("Scheduler", "Schedule recurring tasks and manage schedules", "/api/scheduler", "scheduler.html"),
     ("Notifications", "Manage user notifications", "/api/notifications", "notifications.html"),
 ]
 
@@ -240,6 +244,7 @@ def init_db() -> None:
         cursor.execute(create_modules_table)
         for module_name, module_desc, module_path, module_home in module_data:
             cursor.execute(insert_module, (module_name, module_desc, module_path, module_home, module_name))
+            cursor.execute(update_module_path, (module_path, module_name))
         for role_id, role_name, role_desc, json_data in user_roles:
             cursor.execute(insert_user_role, (role_id, role_name, role_desc, json_data, role_name))
     logger.info("Database schema initialization finished")
