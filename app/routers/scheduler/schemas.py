@@ -24,22 +24,6 @@ class ScheduleListResponse(BaseModel):
 
 class ExecutionFiltersRequest(BaseModel):
     schedule_id: int | None = None
-    limit: int = 50
-    offset: int = 0
-
-    @field_validator("limit")
-    @classmethod
-    def validate_limit(cls, value: int) -> int:
-        if value < 1 or value > 2000:
-            raise ValueError("limit must be between 1 and 2000")
-        return value
-
-    @field_validator("offset")
-    @classmethod
-    def validate_offset(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("offset must be greater than or equal to 0")
-        return value
 
 
 class ExecutionItem(BaseModel):
@@ -58,7 +42,6 @@ class ExecutionItem(BaseModel):
 
 class ExecutionListResponse(BaseModel):
     executions: list[ExecutionItem]
-    total_count: int
 
 
 class UpdateScheduleRequest(BaseModel):

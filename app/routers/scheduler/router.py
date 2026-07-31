@@ -21,7 +21,7 @@ def list_schedules(
     return scheduler_schemas.ScheduleListResponse(schedules=schedules)
 
 
-@router.post("/schedule/update", response_model=scheduler_schemas.UpdateScheduleResponse)
+@router.post("/update-schedule", response_model=scheduler_schemas.UpdateScheduleResponse)
 def update_schedule(
     request: scheduler_schemas.UpdateScheduleRequest,
     user_data: tuple = Depends(_get_user_from_token),
@@ -29,7 +29,12 @@ def update_schedule(
     useremail, _display_name, role_name = user_data
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
-        next_run_at = scheduler_methods.update_schedule(cursor, useremail, role_name, request)
+        schedule_id = request.schedule_id
+        cron_expression = request.cron_expression
+        is_enabled = request.is_enabled
+        next_run_at = scheduler_methods.update_schedule(
+            cursor, useremail, role_name, schedule_id, cron_expression, is_enabled
+        )
     return scheduler_schemas.UpdateScheduleResponse(
         next_run_at=next_run_at,
         message="Schedule updated successfully",
@@ -59,5 +64,5 @@ def list_executions(
     useremail, _display_name, role_name = user_data
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
-        executions, total_count = scheduler_methods.list_executions(cursor, useremail, role_name, request)
-    return scheduler_schemas.ExecutionListResponse(executions=executions, total_count=total_count)
+        executions = scheduler_methods.list_executions(cursor, useremail, role_name, request.schedule_id)
+    return scheduler_schemas.ExecutionListResponse(executions=executions)

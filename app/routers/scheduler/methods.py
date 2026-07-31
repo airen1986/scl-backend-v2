@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from cron_descriptor import CasingTypeEnum, ExpressionDescriptor, Options
 from croniter import CroniterBadCronError, croniter
 from fastapi import HTTPException
 
@@ -9,10 +10,6 @@ from . import queries as scheduler_queries
 from . import schemas as scheduler_schemas
 
 DB_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-
-def _normalize_json(value: dict[str, Any]) -> str:
-    return json.dumps(value or {}, sort_keys=True, separators=(",", ":"))
 
 
 _JSON_FALLBACK_UNSET = object()
@@ -42,6 +39,16 @@ def _next_cron_run(cron_expression: str) -> str:
         return croniter(cron_expression, datetime.now(timezone.utc)).get_next(datetime).strftime(DB_TIME_FORMAT)
     except CroniterBadCronError:
         raise HTTPException(status_code=400, detail="Invalid cron expression")
+
+
+def _cron_description(cron_expression: str) -> str | None:
+    options = Options()
+    options.casing_type = CasingTypeEnum.Sentence
+    options.use_24hour_time_format = True
+    try:
+        return ExpressionDescriptor(cron_expression, options).get_description()
+    except Exception:
+        return None
 
 
 def _validate_schedule_fields(
@@ -118,36 +125,25 @@ def update_schedule(
     cursor,
     user_email: str,
     role_name: str,
-    request: scheduler_schemas.UpdateScheduleRequest,
+    schedule_id: int,
+    cron_expression: str | None,
+    is_enabled: int | None,
 ) -> str | None:
-    row = _get_schedule_row(cursor, request.schedule_id)
+    row = _get_schedule_row(cursor, schedule_id)
     created_by = row[11]
     is_running = row[8]
-    task_id = row[1]
     _check_schedule_owner(created_by, user_email, role_name)
     if is_running == 1:
         raise HTTPException(status_code=409, detail="Cannot update a running schedule")
 
     schedule_type = row[5]
     new_cron_expression = row[6]
-    if request.cron_expression is not None:
-        new_cron_expression = request.cron_expression.strip()
-    new_is_enabled = row[7] if request.is_enabled is None else request.is_enabled
+    if cron_expression is not None:
+        new_cron_expression = cron_expression.strip()
+    new_is_enabled = row[7] if is_enabled is None else is_enabled
 
     next_run_at = _validate_schedule_fields(schedule_type, new_cron_expression)
-    existing_task_params = _normalize_json(_loads_json(row[4])) if row[4] is not None else "{}"
-    duplicate = cursor.execute(
-        scheduler_queries.find_duplicate_schedule,
-        (
-            task_id,
-            existing_task_params,
-            schedule_type,
-            new_cron_expression,
-            request.schedule_id,
-        ),
-    ).fetchone()
-    if duplicate:
-        raise HTTPException(status_code=409, detail="Duplicate schedule")
+    new_cron_description = _cron_description(new_cron_expression)
 
     cursor.execute(
         scheduler_queries.update_schedule,
@@ -155,7 +151,8 @@ def update_schedule(
             new_cron_expression,
             new_is_enabled,
             next_run_at,
-            request.schedule_id,
+            new_cron_description,
+            schedule_id,
         ),
     )
     return _api_datetime(next_run_at)
@@ -182,30 +179,10 @@ def run_schedule(
     return _api_datetime(next_run_at) or next_run_at
 
 
-def list_executions(
-    cursor,
-    user_email: str,
-    role_name: str,
-    request: scheduler_schemas.ExecutionFiltersRequest,
-) -> tuple[list, int]:
-    where_clauses = []
-    params: list[Any] = []
-    if request.schedule_id is not None:
-        where_clauses.append("je.ScheduleId = ?")
-        params.append(request.schedule_id)
+def list_executions(cursor, user_email: str, role_name: str, schedule_id: int | None) -> list:
+    created_by = None
     if not _is_super_admin(role_name):
-        where_clauses.append("sj.CreatedBy = ?")
-        params.append(user_email)
-
-    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-    count_query = f"SELECT COUNT(*) {scheduler_queries.execution_base}{where_sql}"
-    list_query = f"""SELECT je.ExecutionId, je.ScheduleId, je.TaskId, je.TaskName, je.Status,
-                     je.StartedAt, je.CompletedAt, je.DurationSeconds, je.RetryCount,
-                     je.ErrorMessage, je.ResultData
-                     {scheduler_queries.execution_base}
-                     {where_sql}
-                     ORDER BY je.ExecutionId DESC
-                     LIMIT ? OFFSET ?"""
-    total_count = cursor.execute(count_query, tuple(params)).fetchone()[0]
-    rows = cursor.execute(list_query, (*params, request.limit, request.offset)).fetchall()
-    return [_execution_item(row) for row in rows], total_count
+        created_by = user_email
+    query, params = scheduler_queries.get_schedule_executions(schedule_id, created_by)
+    rows = cursor.execute(query, params).fetchall()
+    return [_execution_item(row) for row in rows]
