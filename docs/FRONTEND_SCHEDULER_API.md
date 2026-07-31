@@ -16,32 +16,7 @@ This document describes the scheduler endpoints that are currently implemented i
 
 ## Supported endpoints
 
-### 1. List tasks
-
-**POST `/api/scheduler/tasks`**
-
-Returns the registered task definitions from the scheduler task table.
-
-**Request body:** `{}`
-
-**Response:**
-```json
-{
-  "tasks": [
-    {
-      "task_id": 1,
-      "task_name": "celery_task_update",
-      "task_description": "Celery task update job",
-      "max_retries": 3,
-      "timeout_seconds": 300
-    }
-  ]
-}
-```
-
----
-
-### 2. List schedules
+### 1. List schedules
 
 **POST `/api/scheduler/schedules`**
 
@@ -73,7 +48,7 @@ Returns schedules joined with their task metadata. `SUPER_ADMIN` users receive a
 
 ---
 
-### 3. Update a schedule
+### 2. Update a schedule
 
 **POST `/api/scheduler/schedule/update`**
 
@@ -83,8 +58,6 @@ Updates an existing schedule.
 ```json
 {
   "schedule_id": 1,
-  "schedule_description": "Task is running every 15 minutes",
-  "schedule_type": "cron",
   "cron_expression": "*/15 * * * *",
   "is_enabled": 0
 }
@@ -107,21 +80,39 @@ Updates an existing schedule.
 
 ---
 
-### 4. List execution history
+### 3. Run a schedule
 
-**POST `/api/scheduler/executions`**
+**POST `/api/scheduler/run`**
 
-Returns execution rows with optional filters. `SUPER_ADMIN` users can view all execution history and may filter by `created_by`; other users receive only execution history for schedules where `created_by` matches their user email.
+Moves a schedule's `next_run_at` to the current UTC time plus one second. `SUPER_ADMIN` users can run any schedule; other users can run only schedules they created. The update is rejected while the schedule is already running.
 
 **Request body:**
 ```json
 {
-  "schedule_id": null,
-  "task_name": null,
-  "created_by": null,
-  "status": null,
-  "started_from": null,
-  "started_to": null,
+  "schedule_id": 1
+}
+```
+
+**Response:**
+```json
+{
+  "next_run_at": "2026-07-30T07:00:01Z",
+  "message": "Schedule queued to run"
+}
+```
+
+---
+
+### 4. List execution history
+
+**POST `/api/scheduler/executions`**
+
+Returns execution rows. `SUPER_ADMIN` users can view all executions; other users receive only executions for schedules they created. `schedule_id` can narrow the result, while `limit` and `offset` control pagination.
+
+**Request body:**
+```json
+{
+  "schedule_id": 1,
   "limit": 50,
   "offset": 0
 }
@@ -129,11 +120,6 @@ Returns execution rows with optional filters. `SUPER_ADMIN` users can view all e
 
 **Filters:**
 - `schedule_id`
-- `task_name`
-- `created_by` (`SUPER_ADMIN` only; ignored for other roles)
-- `status`
-- `started_from`
-- `started_to`
 - `limit` and `offset` for pagination
 
 **Response:**
@@ -160,102 +146,11 @@ Returns execution rows with optional filters. `SUPER_ADMIN` users can view all e
 
 ---
 
-### 5. Get one execution
-
-**POST `/api/scheduler/execution`**
-
-Returns a single execution record. `SUPER_ADMIN` users can retrieve any execution; other users can retrieve only executions for their own schedules.
-
-**Request body:**
-```json
-{
-  "execution_id": 101
-}
-```
-
-**Response:** Same shape as one item in the execution list response.
-
----
-
-### 6. Validate a cron expression
-
-**POST `/api/scheduler/cron/validate`**
-
-Validates a cron string and returns a human-readable description plus preview run times.
-
-**Request body:**
-```json
-{
-  "cron_expression": "*/10 * * * *",
-  "count": 5
-}
-```
-
-**Response:**
-```json
-{
-  "is_valid": true,
-  "description": "Every 10 minutes",
-  "next_runs": [
-    "2026-07-30T07:10:00Z",
-    "2026-07-30T07:20:00Z",
-    "2026-07-30T07:30:00Z"
-  ],
-  "message": null
-}
-```
-
----
-
-### 7. Get scheduler status
-
-**POST `/api/scheduler/status`**
-
-Returns the current scheduler status summary.
-
-**Request body:** `{}`
-
-**Response:**
-```json
-{
-  "is_alive": true,
-  "last_poll_at": "2026-07-30T07:00:00Z",
-  "enabled_schedules": 4,
-  "running_schedules": 1,
-  "last_execution_status": "success"
-}
-```
-
----
-
-### 8. Run a schedule immediately
-
-**POST `/api/scheduler/schedule/run`**
-
-Queues a manual execution for an enabled schedule.
-
-**Request body:**
-```json
-{
-  "schedule_id": 5
-}
-```
-
-**Response:**
-```json
-{
-  "execution_id": 102,
-  "message": "Schedule queued for execution"
-}
-```
-
----
-
 ## Current behavior notes
 
 - The scheduler runner is a separate process and the API only exposes management and inspection endpoints.
 - Cron schedules compute a new `next_run_at` after execution.
-- A schedule cannot be run concurrently while its `is_running` flag is already set.
+- A schedule cannot be updated while its `is_running` flag is already set.
 
 ---
 
@@ -265,6 +160,10 @@ The following capabilities are not available in the current backend implementati
 
 - Create-schedule endpoint
 - Delete-schedule endpoint
+- List-tasks endpoint
+- Get-one-execution endpoint
+- Cron-validation endpoint
+- Scheduler-status endpoint
 - Separate enable/disable route
 - One-time and startup schedule types
 - Custom error envelope with `code` and `request_id`

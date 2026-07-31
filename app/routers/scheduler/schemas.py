@@ -1,37 +1,6 @@
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, field_validator
-
-
-class MessageResponse(BaseModel):
-    message: str
-
-
-class EmptyRequest(BaseModel):
-    pass
-
-
-class ScheduleType(str, Enum):
-    CRON = "cron"
-
-
-class ExecutionStatus(str, Enum):
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-
-
-class TaskItem(BaseModel):
-    task_id: int
-    task_name: str
-    task_description: str | None
-    max_retries: int
-    timeout_seconds: int
-
-
-class TaskListResponse(BaseModel):
-    tasks: list[TaskItem]
 
 
 class ScheduleItem(BaseModel):
@@ -40,7 +9,7 @@ class ScheduleItem(BaseModel):
     task_id: int
     task_name: str
     task_params: dict[str, Any]
-    schedule_type: ScheduleType
+    schedule_type: str
     cron_expression: str | None
     is_enabled: int
     is_running: int
@@ -53,46 +22,16 @@ class ScheduleListResponse(BaseModel):
     schedules: list[ScheduleItem]
 
 
-class UpdateScheduleRequest(BaseModel):
-    schedule_id: int
-    schedule_description: str | None = None
-    task_params: dict[str, Any] | None = None
-    schedule_type: ScheduleType
-    cron_expression: str | None = None
-    is_enabled: int
-
-    @field_validator("is_enabled")
-    @classmethod
-    def validate_flag(cls, value: int) -> int:
-        if value not in (0, 1):
-            raise ValueError("is_enabled must be 0 or 1")
-        return value
-
-
-class UpdateScheduleResponse(BaseModel):
-    next_run_at: str | None
-    message: str
-
-
-class ScheduleIdRequest(BaseModel):
-    schedule_id: int
-
-
 class ExecutionFiltersRequest(BaseModel):
     schedule_id: int | None = None
-    task_name: str | None = None
-    created_by: str | None = None
-    status: ExecutionStatus | None = None
-    started_from: str | None = None
-    started_to: str | None = None
     limit: int = 50
     offset: int = 0
 
     @field_validator("limit")
     @classmethod
     def validate_limit(cls, value: int) -> int:
-        if value < 1 or value > 200:
-            raise ValueError("limit must be between 1 and 200")
+        if value < 1 or value > 2000:
+            raise ValueError("limit must be between 1 and 2000")
         return value
 
     @field_validator("offset")
@@ -108,7 +47,7 @@ class ExecutionItem(BaseModel):
     schedule_id: int
     task_id: int
     task_name: str
-    status: ExecutionStatus
+    status: str
     started_at: str
     completed_at: str | None
     duration_seconds: float | None
@@ -122,37 +61,28 @@ class ExecutionListResponse(BaseModel):
     total_count: int
 
 
-class ExecutionIdRequest(BaseModel):
-    execution_id: int
+class UpdateScheduleRequest(BaseModel):
+    schedule_id: int
+    cron_expression: str | None = None
+    is_enabled: int | None = None
 
-
-class CronValidateRequest(BaseModel):
-    cron_expression: str
-    count: int = 5
-
-    @field_validator("count")
+    @field_validator("is_enabled")
     @classmethod
-    def validate_count(cls, value: int) -> int:
-        if value < 1 or value > 20:
-            raise ValueError("count must be between 1 and 20")
+    def validate_flag(cls, value: int | None) -> int | None:
+        if value is not None and value not in (0, 1):
+            raise ValueError("is_enabled must be 0 or 1")
         return value
 
 
-class CronValidateResponse(BaseModel):
-    is_valid: bool
-    description: str | None
-    next_runs: list[str]
-    message: str | None
+class UpdateScheduleResponse(BaseModel):
+    next_run_at: str | None
+    message: str
 
 
-class SchedulerStatusResponse(BaseModel):
-    is_alive: bool
-    last_poll_at: str | None
-    enabled_schedules: int
-    running_schedules: int
-    last_execution_status: str | None
+class RunScheduleRequest(BaseModel):
+    schedule_id: int
 
 
 class RunScheduleResponse(BaseModel):
-    execution_id: int
+    next_run_at: str
     message: str

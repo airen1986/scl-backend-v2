@@ -162,14 +162,7 @@ def init_scheduler_db() -> None:
                 schedule_description = get_cron_description(cron_expr) or schedule_description
             cursor.execute(
                 insert_scheduled_job,
-                (
-                    schedule_type,
-                    cron_expr,
-                    is_enabled,
-                    schedule_description,
-                    task_params,
-                    task_name
-                ),
+                (schedule_type, cron_expr, is_enabled, schedule_description, task_params, task_name),
             )
 
         refresh_cron_schedule_descriptions(cursor)
