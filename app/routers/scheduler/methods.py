@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from cron_descriptor import CasingTypeEnum, ExpressionDescriptor, Options
-from croniter import CroniterBadCronError, croniter
+from croniter import CroniterBadCronError, CroniterBadDateError, croniter
 from fastapi import HTTPException
 
 from . import queries as scheduler_queries
@@ -37,7 +37,7 @@ def _api_datetime(value: str | None) -> str | None:
 def _next_cron_run(cron_expression: str) -> str:
     try:
         return croniter(cron_expression, datetime.now(timezone.utc)).get_next(datetime).strftime(DB_TIME_FORMAT)
-    except CroniterBadCronError:
+    except (CroniterBadCronError, CroniterBadDateError):
         raise HTTPException(status_code=400, detail="Invalid cron expression")
 
 
@@ -138,11 +138,13 @@ def update_schedule(
 
     schedule_type = row[5]
     new_cron_expression = row[6]
-    if cron_expression is not None:
+    next_run_at = row[10]
+    if cron_expression is not None and new_cron_expression != cron_expression.strip():
         new_cron_expression = cron_expression.strip()
+        next_run_at = _validate_schedule_fields(schedule_type, new_cron_expression)
+
     new_is_enabled = row[7] if is_enabled is None else is_enabled
 
-    next_run_at = _validate_schedule_fields(schedule_type, new_cron_expression)
     new_cron_description = _cron_description(new_cron_expression)
 
     cursor.execute(
@@ -168,7 +170,10 @@ def run_schedule(
     created_by = row[11]
     is_running = row[8]
     is_enabled = row[7]
+    schedule_type = row[5]
     _check_schedule_owner(created_by, user_email, role_name)
+    if schedule_type != "cron":
+        raise HTTPException(status_code=400, detail="Only cron schedules can be run manually")
     if is_running == 1:
         raise HTTPException(status_code=409, detail="Cannot run a running schedule")
     if is_enabled != 1:
