@@ -25,16 +25,6 @@ async def update_schedule_run_times(schedule_id: int, last_run: str, next_run: s
     await asyncio.to_thread(_query)
 
 
-async def disable_schedule(schedule_id: int) -> None:
-    """Disable a schedule (used after run_once completes)."""
-
-    def _query():
-        with master_connection() as conn:
-            conn.execute(db_queries.disable_schedule, (schedule_id,))
-
-    await asyncio.to_thread(_query)
-
-
 async def log_job_execution(
     schedule_id: int,
     task_id: int,

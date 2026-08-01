@@ -16,7 +16,7 @@ task_definitions = [
 
 # Task Schedules
 # [TaskName, ScheduleType, CronExpression, IsEnabled, ScheduleDescription, TaskParams]
-# ScheduleType: "cron", "run_once", "run_at_startup"
+# ScheduleType: "cron"
 task_schedules = [
     ["celery_task_update", "cron", "* * * * *", 1, "Every minute", "{}"],
     ["cleanup_temp_files", "cron", "0 * * * *", 1, "Every hour", "{}"],
