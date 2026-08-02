@@ -64,4 +64,7 @@ get_modules = """SELECT Distinct ModuleName
         json_each(ifnull(json_extract(ifnull(S_UserRoles.JsonData, '{}'), '$.modules'), '[]')) as module_list,
         S_Modules
         WHERE S_Modules.ModuleName = module_list.value
-        AND   S_UserRoles.RoleName = IFNULL(?, S_UserRoles.RoleName)"""
+        AND   S_UserRoles.RoleName = ? """
+
+
+get_all_modules = "SELECT ModuleName FROM S_Modules"

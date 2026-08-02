@@ -296,7 +296,8 @@ def check_module_access(cursor, role_name: str, module_path: str):
 
 def get_modules(cursor, role_name: str) -> list[str]:
     """Return a list of module names accessible to the given role."""
+    module_query = queries.get_modules
     if role_name.upper() == "SUPER_ADMIN":
-        role_name = None  # Super admin has access to all modules, so no role filter
-    rows = cursor.execute(queries.get_modules, (role_name,)).fetchall()
+        module_query = queries.get_all_modules
+    rows = cursor.execute(module_query, (role_name,)).fetchall()
     return [row[0] for row in rows]
