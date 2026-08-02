@@ -49,3 +49,7 @@ class RedirectUrlResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class ModuleListResponse(BaseModel):
+    modules: list[str]
