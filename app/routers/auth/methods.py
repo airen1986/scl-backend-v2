@@ -292,3 +292,11 @@ def check_module_access(cursor, role_name: str, module_path: str):
     row = cursor.execute(queries.check_module_access, (role_name, module_path)).fetchone()
     if not row or row[0] == 0:
         raise HTTPException(status_code=403, detail="You do not have permission to access this module")
+
+
+def get_modules(cursor, role_name: str) -> list[str]:
+    """Return a list of module names accessible to the given role."""
+    if role_name.upper() == "SUPER_ADMIN":
+        role_name = None  # Super admin has access to all modules, so no role filter
+    rows = cursor.execute(queries.get_modules, (role_name,)).fetchall()
+    return [row[0] for row in rows]

@@ -148,3 +148,14 @@ def change_password(
     with master_connection() as cursor:
         auth_methods.change_password(cursor, useremail, current_password, new_password)
         return auth_schemas.MessageResponse(message="Password changed successfully")
+
+
+@router.post("/modules", response_model=auth_schemas.ModuleListResponse)
+def list_modules(
+    user_data: tuple = Depends(auth_methods._get_user_from_token),
+) -> auth_schemas.ModuleListResponse:
+    """Return a list of modules accessible to the authenticated user's role."""
+    _useremail, _display_name, role_name = user_data
+    with master_connection() as cursor:
+        modules = auth_methods.get_modules(cursor, role_name)
+    return auth_schemas.ModuleListResponse(modules=modules)

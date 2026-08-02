@@ -22,6 +22,7 @@ from app.routers.scheduler.router import router as scheduler_router
 from app.routers.sql_client.router import router as sql_client_router
 from app.routers.tables.router import router as tables_router
 from app.routers.tasks.router import router as tasks_router
+from app.routers.user_management.router import router as user_management_router
 
 logger = get_logger(__name__)
 
@@ -62,6 +63,7 @@ app.include_router(tables_router, prefix="/api/tables", tags=["tables"])
 app.include_router(sql_client_router, prefix="/api/sql-client", tags=["sql-client"])
 app.include_router(tasks_router, prefix="/api/tasks", tags=["tasks"])
 app.include_router(scheduler_router, prefix="/api/scheduler", tags=["scheduler"])
+app.include_router(user_management_router, prefix="/api/user-management", tags=["user-management"])
 app.mount("/", StaticFiles(directory=STATIC_FOLDER, html=True), name="static")
 
 

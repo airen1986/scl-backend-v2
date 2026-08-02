@@ -200,6 +200,7 @@ module_data = [
     ("Tasks", "Monitor and manage long-running tasks", "/api/tasks", "task-details.html"),
     ("Scheduler", "Schedule recurring tasks and manage schedules", "/api/scheduler", "scheduler.html"),
     ("Notifications", "Manage user notifications", "/api/notifications", "notifications.html"),
+    ("UserManagement", "Manage user accounts and roles", "/api/user-management", "user-management.html"),
 ]
 
 admin_role = {"modules": [module[0] for module in module_data], "homePage": "home-page.html"}
