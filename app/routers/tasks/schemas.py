@@ -62,6 +62,8 @@ class taskDetailsRequest(TaskBaseModel):
 
 class taskDetailsResponse(BaseModel):
     task_name: str
+    task_display_name: str
+    task_code: int
     submitted_by: str
     status: str
     start_time: str

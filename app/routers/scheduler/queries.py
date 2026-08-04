@@ -22,14 +22,6 @@ get_schedule = """SELECT sj.ScheduleId, sj.TaskId, tm.TaskName, sj.ScheduleDescr
                   JOIN SJ_TaskMaster tm ON tm.TaskId = sj.TaskId
                   WHERE sj.ScheduleId = ?"""
 
-find_duplicate_schedule = """SELECT ScheduleId
-                             FROM SJ_ScheduledJobs
-                             WHERE TaskId = ?
-                             AND COALESCE(TaskParams, '{}') = ?
-                             AND ScheduleType = ?
-                             AND COALESCE(CronExpression, '') = COALESCE(?, '')
-                             AND ScheduleId != ?"""
-
 update_schedule = """UPDATE SJ_ScheduledJobs
                      SET CronExpression = ?, IsEnabled = ?, NextRunAt = ?,
                      ScheduleDescription = ?,
@@ -63,3 +55,21 @@ def get_schedule_executions(schedule_id: int | None, created_by: str | None) -> 
                ORDER BY je.ExecutionId DESC
                LIMIT 50"""
     return query, params
+
+
+get_task_schedule = """select SJ_ScheduledJobs.CronExpression, SJ_ScheduledJobs.ScheduleId,
+                        SJ_ScheduledJobs.IsEnabled,  SJ_ScheduledJobs.CreatedBy,
+                        SJ_ScheduledJobs.NextRunAt
+                        from SJ_ScheduledJobs, SJ_TaskMaster
+                        WHERE SJ_ScheduledJobs.TaskId = SJ_TaskMaster.TaskId
+                        and TaskName = 'run_model_task'
+                        AND   json_extract(SJ_ScheduledJobs.TaskParams, '$.model_id') = ?
+                        AND   json_extract(SJ_ScheduledJobs.TaskParams, '$.task_code') = ?;"""
+
+
+get_task_id = """SELECT TaskId FROM SJ_TaskMaster WHERE TaskName = ?"""
+
+insert_schedule = """INSERT INTO SJ_ScheduledJobs (TaskId, TaskParams, ScheduleType, CronExpression,
+                        IsEnabled, NextRunAt, ScheduleDescription, CreatedBy)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                     RETURNING ScheduleId, NextRunAt"""

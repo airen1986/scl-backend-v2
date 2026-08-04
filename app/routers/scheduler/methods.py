@@ -6,6 +6,10 @@ from cron_descriptor import CasingTypeEnum, ExpressionDescriptor, Options
 from croniter import CroniterBadCronError, CroniterBadDateError, croniter
 from fastapi import HTTPException
 
+from app.routers.models.methods import get_model_id_and_path
+from app.routers.models.queries import get_model_info
+from app.routers.tasks.methods import get_task_details
+
 from . import queries as scheduler_queries
 from . import schemas as scheduler_schemas
 
@@ -191,3 +195,80 @@ def list_executions(cursor, user_email: str, role_name: str, schedule_id: int | 
     query, params = scheduler_queries.get_schedule_executions(schedule_id, created_by)
     rows = cursor.execute(query, params).fetchall()
     return [_execution_item(row) for row in rows]
+
+
+def get_task_schedule(
+    cursor,
+    user_email: str,
+    task_code: int,
+    model_name: str,
+    project_name: str,
+):
+    model_id, _ = get_model_id_and_path(cursor, model_name, project_name, user_email)
+    if model_id is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    row = cursor.execute(scheduler_queries.get_task_schedule, (model_id, task_code)).fetchone()
+    if not row:
+        owner_info, _template_name = cursor.execute(get_model_info, (model_id,)).fetchone()
+        if owner_info != user_email:
+            raise HTTPException(status_code=403, detail="Schedule not found")
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    cron_expression, schedule_id, is_enabled, created_by, next_run_at = row
+    return scheduler_schemas.GetTaskScheduleResponse(
+        schedule_id=schedule_id,
+        cron_expression=cron_expression,
+        is_enabled=is_enabled,
+        created_by=created_by,
+        next_run_at=_api_datetime(next_run_at),
+    )
+
+
+def set_task_schedule(
+    cursor,
+    user_email: str,
+    role_name: str,
+    task_id: int,
+    model_name: str,
+    project_name: str,
+    cron_expression: str,
+    is_enabled: int,
+    schedule_id: int | None = None,
+) -> tuple[int, str] | None:
+    if schedule_id is not None:
+        return schedule_id, update_schedule(cursor, user_email, role_name, schedule_id, cron_expression, is_enabled)
+
+    model_id, _ = get_model_id_and_path(cursor, model_name, project_name, user_email)
+    if model_id is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    owner_info, _template_name = cursor.execute(get_model_info, (model_id,)).fetchone()
+    if owner_info != user_email:
+        raise HTTPException(status_code=403, detail="Schedule not found")
+
+    scheduler_task_id = cursor.execute(scheduler_queries.get_task_id, ("run_model_task",)).fetchone()[0]
+    schedule_type = "cron"
+    schedule_description = _cron_description(cron_expression)
+    next_run_at = _validate_schedule_fields(schedule_type, cron_expression)
+
+    task_params = {"model_id": model_id, "user_email": user_email, "task_id": task_id}
+    task_details = get_task_details(cursor, task_id, user_email, model_name, project_name)
+    task_input_params = task_details["input"]
+    task_code = task_details["task_code"]
+
+    task_params.update({"task_code": task_code, "task_input_params": task_input_params})
+
+    insert_params = (
+        scheduler_task_id,
+        json.dumps(task_params),
+        schedule_type,
+        cron_expression,
+        is_enabled,
+        next_run_at,
+        schedule_description,
+        user_email,
+    )
+    row = cursor.execute(scheduler_queries.get_task_schedule, (model_id, task_code)).fetchone()
+    if row:
+        raise HTTPException(status_code=409, detail="A schedule for this task already exists")
+    row = cursor.execute(scheduler_queries.insert_schedule, insert_params).fetchone()
+    schedule_id, next_run_at = row
+    return schedule_id, _api_datetime(next_run_at)
