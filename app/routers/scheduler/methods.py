@@ -236,6 +236,8 @@ def set_task_schedule(
         return schedule_id, update_schedule(cursor, user_email, role_name, schedule_id, cron_expression, is_enabled)
 
     model_id, _ = get_model_id_and_path(cursor, model_name, project_name, user_email)
+    if model_id is None:
+        raise HTTPException(status_code=404, detail="Model not found")
     owner_info, _template_name = cursor.execute(get_model_info, (model_id,)).fetchone()
     if owner_info != user_email:
         raise HTTPException(status_code=403, detail="Schedule not found")

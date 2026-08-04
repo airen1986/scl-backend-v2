@@ -58,7 +58,10 @@ def list_model_tasks(cursor, user_email: str, model_name: str, project_name: str
 
 
 def run_task_by_model_id(cursor, user_email: str, model_id: int, task_code: int, task_param_values: list):
-    model_name, project_name = cursor.execute(get_model_name_and_project_name, (model_id, user_email)).fetchone()
+    row = cursor.execute(get_model_name_and_project_name, (model_id, user_email)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Model not found")
+    model_name, project_name = row
     return run_model_task(cursor, user_email, model_name, project_name, task_code, task_param_values)
 
 
