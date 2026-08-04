@@ -10,7 +10,7 @@ import asyncio
 
 from app.connection import master_connection
 from app.logging_config import get_logger
-from app.routers.tasks.methods import run_model_task as submit_model_task
+from app.routers.tasks.methods import run_task_by_model_id as submit_model_task
 from app.routers.tasks.methods import update_task_status
 from app.routers.tasks.schemas import TaskParamValues
 from scheduler._tasks.cancel_long_running_tasks import main as cancel_long_running_main
@@ -36,6 +36,15 @@ def _required_param(params: dict, key: str):
     return value
 
 
+def _task_param_values(raw_params) -> list[TaskParamValues]:
+    if isinstance(raw_params, dict):
+        return [
+            TaskParamValues(ParameterName=parameter_name, ParameterValue=parameter_value)
+            for parameter_name, parameter_value in raw_params.items()
+        ]
+    return [TaskParamValues(**param) for param in raw_params or []]
+
+
 async def run_model_task(params: dict) -> dict:
     """
     Submit a model task through the same method used by the tasks API.
@@ -48,18 +57,16 @@ async def run_model_task(params: dict) -> dict:
     """
 
     user_email = _required_param(params, "user_email")
-    model_name = _required_param(params, "model_name")
-    project_name = _required_param(params, "project_name")
+    model_id = _required_param(params, "model_id")
     task_code = int(_required_param(params, "task_code"))
-    task_param_values = [TaskParamValues(**param) for param in params.get("task_params", [])]
+    task_param_values = _task_param_values(params.get("task_input_params"))
 
     def _submit():
         with master_connection() as cursor:
             task_id, task_name, resolved_model_name, resolved_project_name = submit_model_task(
                 cursor,
                 user_email,
-                model_name,
-                project_name,
+                model_id,
                 task_code,
                 task_param_values,
             )

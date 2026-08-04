@@ -37,6 +37,7 @@ def update_schedule(
         )
     return scheduler_schemas.UpdateScheduleResponse(
         next_run_at=next_run_at,
+        schedule_id=schedule_id,
         message="Schedule updated successfully",
     )
 
@@ -66,3 +67,43 @@ def list_executions(
         check_module_access(cursor, role_name, this_api)
         executions = scheduler_methods.list_executions(cursor, useremail, role_name, request.schedule_id)
     return scheduler_schemas.ExecutionListResponse(executions=executions)
+
+
+@router.post("/get-task-schedule", response_model=scheduler_schemas.GetTaskScheduleResponse)
+def get_task_schedule(
+    request: scheduler_schemas.GetTaskScheduleRequest,
+    user_data: tuple = Depends(_get_user_from_token),
+) -> scheduler_schemas.GetTaskScheduleResponse:
+    useremail, _display_name, role_name = user_data
+    with master_connection() as cursor:
+        check_module_access(cursor, role_name, this_api)
+        schedule = scheduler_methods.get_task_schedule(
+            cursor, useremail, request.task_code, request.model_name, request.project_name
+        )
+    return schedule
+
+
+@router.post("/set-task-schedule", response_model=scheduler_schemas.UpdateScheduleResponse)
+def set_task_schedule(
+    request: scheduler_schemas.SetTaskScheduleRequest,
+    user_data: tuple = Depends(_get_user_from_token),
+) -> scheduler_schemas.UpdateScheduleResponse:
+    useremail, _display_name, role_name = user_data
+    with master_connection() as cursor:
+        check_module_access(cursor, role_name, this_api)
+        schedule_id, next_run_at = scheduler_methods.set_task_schedule(
+            cursor,
+            useremail,
+            role_name,
+            request.task_id,
+            request.model_name,
+            request.project_name,
+            request.cron_expression,
+            request.is_enabled,
+            request.schedule_id,
+        )
+    return scheduler_schemas.UpdateScheduleResponse(
+        next_run_at=next_run_at,
+        schedule_id=schedule_id,
+        message="Task schedule set successfully",
+    )

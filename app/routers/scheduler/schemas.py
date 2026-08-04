@@ -57,7 +57,15 @@ class UpdateScheduleRequest(BaseModel):
         return value
 
 
+class GetTaskScheduleRequest(BaseModel):
+    task_code: int
+    model_name: str
+    project_name: str
+    next_run_at: str | None = None
+
+
 class UpdateScheduleResponse(BaseModel):
+    schedule_id: int
     next_run_at: str | None
     message: str
 
@@ -69,3 +77,27 @@ class RunScheduleRequest(BaseModel):
 class RunScheduleResponse(BaseModel):
     next_run_at: str
     message: str
+
+
+class GetTaskScheduleResponse(BaseModel):
+    schedule_id: int
+    cron_expression: str
+    is_enabled: int
+    created_by: str
+    next_run_at: str | None
+
+
+class SetTaskScheduleRequest(BaseModel):
+    task_id: int
+    schedule_id: int | None = None
+    model_name: str
+    project_name: str
+    cron_expression: str
+    is_enabled: int
+
+    @field_validator("is_enabled")
+    @classmethod
+    def validate_flag(cls, value: int) -> int:
+        if value not in (0, 1):
+            raise ValueError("is_enabled must be 0 or 1")
+        return value

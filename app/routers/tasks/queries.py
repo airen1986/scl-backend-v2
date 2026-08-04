@@ -100,7 +100,8 @@ update_model_lock = """UPDATE S_Models
                         WHERE ModelId = ?;"""
 
 
-get_task_details = """select ST_TaskRecords.TaskName, ST_TaskRecords.Status, ST_TaskRecords.SubmittedBy,
+get_task_details = """select ST_TaskRecords.TaskName, ST_TaskRecords.TaskCode,
+                        ST_TaskRecords.Status, ST_TaskRecords.SubmittedBy,
                         ST_TaskRecords.SubmittedAt, ST_TaskRecords.LastUpdated,
                         ST_TaskRecords.TaskUID, ST_TaskRecords.TaskURL, ST_TaskRecords.Result, ST_TaskRecords.Kwargs
                         from ST_TaskRecords

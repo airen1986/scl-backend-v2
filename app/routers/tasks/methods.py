@@ -29,7 +29,7 @@ from app.config import (
 from app.connection import master_connection, sql_connection
 from app.logging_config import get_logger
 from app.routers.models.methods import get_model_id_and_path
-from app.routers.models.queries import get_access_level, get_template_name
+from app.routers.models.queries import get_access_level, get_model_name_and_project_name, get_template_name
 
 from . import queries as run_queries
 
@@ -55,6 +55,11 @@ def list_model_tasks(cursor, user_email: str, model_name: str, project_name: str
                 }
             )
         return tasks
+
+
+def run_task_by_model_id(cursor, user_email: str, model_id: int, task_code: int, task_param_values: list):
+    model_name, project_name = cursor.execute(get_model_name_and_project_name, (model_id, user_email)).fetchone()
+    return run_model_task(cursor, user_email, model_name, project_name, task_code, task_param_values)
 
 
 def run_model_task(
@@ -429,7 +434,8 @@ def get_task_details(cursor, task_id: int, user_email: str, model_name: str, pro
     if not task_details:
         raise HTTPException(status_code=404, detail="Task not found")
     (
-        task_name,
+        task_display_name,
+        task_code,
         status,
         submitted_by,
         submission_time,
@@ -450,12 +456,15 @@ def get_task_details(cursor, task_id: int, user_email: str, model_name: str, pro
         log = log[0] if log else "No logs found for this task."
 
     input_params = json.loads(kwargs_json) if kwargs_json else {}
+    task_name = input_params.get("task_name", task_display_name)
     keys_to_remove = ["db", "task_name", "template_name"]
     for key in keys_to_remove:
         input_params.pop(key, None)  # Remove the key if it exists, do nothing otherwise
 
     return {
         "task_name": task_name,
+        "task_display_name": task_display_name,
+        "task_code": task_code,
         "submitted_by": submitted_by,
         "start_time": submission_time,
         "end_time": end_time,
