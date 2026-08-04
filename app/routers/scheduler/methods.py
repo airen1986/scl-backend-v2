@@ -205,6 +205,8 @@ def get_task_schedule(
     project_name: str,
 ):
     model_id, _ = get_model_id_and_path(cursor, model_name, project_name, user_email)
+    if model_id is None:
+        raise HTTPException(status_code=404, detail="Model not found")
     row = cursor.execute(scheduler_queries.get_task_schedule, (model_id, task_code)).fetchone()
     if not row:
         owner_info, _template_name = cursor.execute(get_model_info, (model_id,)).fetchone()
