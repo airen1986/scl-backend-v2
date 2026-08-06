@@ -99,6 +99,12 @@ update_model_lock = """UPDATE S_Models
                         SET JSONData = json_set(COALESCE(JSONData, '{}'), '$.IsLocked', ?)
                         WHERE ModelId = ?;"""
 
+lock_model_if_unlocked = """UPDATE S_Models
+                        SET JSONData = json_set(COALESCE(JSONData, '{}'), '$.IsLocked', 1)
+                        WHERE ModelId = ?
+                        AND ifnull(json_extract(ifnull(JSONData, '{}'), '$.IsLocked'), 0) = 0
+                        RETURNING 1;"""
+
 
 get_task_details = """select ST_TaskRecords.TaskName, ST_TaskRecords.TaskCode,
                         ST_TaskRecords.Status, ST_TaskRecords.SubmittedBy,

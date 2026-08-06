@@ -112,7 +112,13 @@ def run_model_task(
             redis_instance.ping()
         except redis.exceptions.RedisError as e:
             raise HTTPException(status_code=500, detail=f"Could not connect to Redis at {this_broker_url}. Error: {e}")
-    cursor.execute(run_queries.update_model_lock, (1, model_id))
+    cursor.intermediate_commit()
+    row = cursor.execute(run_queries.lock_model_if_unlocked, (model_id,)).fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=400,
+            detail="Model is currently locked by another task. Please wait for it to finish before starting a new one.",
+        )
     cursor.intermediate_commit()
 
     try:
