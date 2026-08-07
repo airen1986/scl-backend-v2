@@ -203,13 +203,26 @@ module_data = [
     ("UserManagement", "Manage user accounts and roles", "/api/user-management", "user-management.html"),
 ]
 
-admin_role = {"modules": [module[0] for module in module_data], "homePage": "home-page.html"}
-user_role = {"modules": [module[0] for module in module_data if module[0] != "Scheduler"], "homePage": "home-page.html"}
+admin_role = {
+    "modules": [module[0] for module in module_data],
+    "homePage": "home-page.html",
+    "canAddNewModel": True,
+}
+user_role = {
+    "modules": [module[0] for module in module_data if module[0] != "Scheduler"],
+    "homePage": "home-page.html",
+    "canAddNewModel": False,
+}
+power_user_role = {
+    "modules": [module[0] for module in module_data if module[0] != "Scheduler"],
+    "homePage": "home-page.html",
+    "canAddNewModel": True,
+}
 
 user_roles = [
     (1, "SUPER_ADMIN", "Administrator with full access", json.dumps(admin_role)),
     (2, "User", "Regular user with limited access", json.dumps(user_role)),
-    (3, "PowerUser", "Power user with extended access", json.dumps(user_role)),
+    (3, "PowerUser", "Power user with extended access", json.dumps(power_user_role)),
 ]
 
 

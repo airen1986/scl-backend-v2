@@ -330,3 +330,17 @@ def get_modules(cursor, role_name: str) -> list[str]:
         params = ()
     rows = cursor.execute(module_query, params).fetchall()
     return [row[0] for row in rows]
+
+
+def check_can_add_new_model(cursor, role_name: str):
+    """Verify the user's role is permitted to add new models. Raises 403 if not."""
+    if role_name == "SUPER_ADMIN":
+        return  # Super admin can always add new models
+    row = cursor.execute(queries.check_can_add_new_model, (role_name,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=403, detail="Role not found")
+    can_add = row[0]
+    if can_add is None:
+        return  # Permission not configured; default to allowed for backward compatibility
+    if can_add == 0:
+        raise HTTPException(status_code=403, detail="You do not have permission to add new models")

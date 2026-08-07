@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
 
 from app.connection import master_connection
-from app.routers.auth.methods import _get_user_from_token, check_module_access
+from app.routers.auth.methods import _get_user_from_token, check_can_add_new_model, check_module_access
 
 from . import methods as model_methods
 from . import schemas as model_schemas
@@ -44,6 +44,7 @@ def add_new_model(
     with_sample_data = request.with_sample_data
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
+        check_can_add_new_model(cursor, role_name)
         model_methods.add_new_model(cursor, model_name, project_name, useremail, model_template, with_sample_data)
     return model_schemas.MessageResponse(message="Model created successfully")
 
@@ -62,6 +63,7 @@ def save_as_model(
 
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
+        check_can_add_new_model(cursor, role_name)
         model_methods.save_as_model(
             cursor, useremail, model_name, project_name, new_model_name, new_project_name, new_user_email
         )

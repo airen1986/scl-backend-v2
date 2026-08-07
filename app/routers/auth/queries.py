@@ -70,3 +70,7 @@ get_modules = """SELECT Distinct ModuleName
 
 
 get_all_modules = "SELECT ModuleName FROM S_Modules"
+
+check_can_add_new_model = """SELECT json_extract(ifnull(S_UserRoles.JsonData, '{}'), '$.canAddNewModel')
+        FROM S_UserRoles
+        WHERE S_UserRoles.RoleName = ?"""
