@@ -62,7 +62,8 @@ def accept_model_share(
 
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
-        check_can_add_new_model(cursor, role_name)
+        if accept and create_new_copy:
+            check_can_add_new_model(cursor, role_name)
         notification_methods.accept_model_share(
             cursor, notification_id, accept, model_name, project_name, create_new_copy, useremail
         )

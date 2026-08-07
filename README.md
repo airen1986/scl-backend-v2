@@ -85,7 +85,9 @@ The `scheduler/` directory contains a lightweight, standalone async cron schedul
 #### Run the Scheduler
 
 ```bash
-uv run python -m scheduler.runner [poll_interval_seconds]
+uv run python -m scheduler.runner
+# Optional custom interval:
+uv run python -m scheduler.runner 30
 ```
 
 The default poll interval is 60 seconds. Logs are written to `LOG_FOLDER/scheduler.log`.

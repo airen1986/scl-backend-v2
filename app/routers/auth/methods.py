@@ -67,11 +67,11 @@ def _get_model_templates(cursor):
 
 def _is_user_expired(end_date_str: str | None) -> bool:
     if not end_date_str:
-        return False
+        return True
     try:
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
     except ValueError:
-        return False
+        return True
     return datetime.now(timezone.utc).date() > end_date
 
 
