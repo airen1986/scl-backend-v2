@@ -2,7 +2,7 @@ check_user_email = "SELECT 1 FROM S_Users WHERE UserEmail = ?"
 
 create_user = """ INSERT INTO S_Users
                     (UserEmail, RoleId, DisplayName, PasswordHash, PasswordSalt, ActivationCode, IsActive,
-                    AccessTemplates) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+                    AccessTemplates, JsonData) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
 add_default_project = """INSERT INTO S_Projects(UserEmail, ProjectName, ProjectStatus)
                         SELECT ?, 'Default', 'Active'
@@ -12,7 +12,7 @@ get_template_names = """select distinct templatename from S_ModelTemplates"""
 
 get_status_activation_code = "SELECT IsActive, ActivationCode FROM S_Users WHERE UserEmail = ?"
 
-update_user_activation = "UPDATE S_Users SET IsActive = 1 WHERE UserEmail = ?"
+update_user_activation = "UPDATE S_Users SET IsActive = 1, ActivationCode = NULL WHERE UserEmail = ?"
 
 update_password_reset_code = "UPDATE S_Users SET ActivationCode = ? WHERE UserEmail = ?"
 
@@ -23,7 +23,8 @@ update_user_password = """UPDATE S_Users SET PasswordHash = ?, UpdatedAt = DATET
 get_user_password = """SELECT S_Users.PasswordHash, S_Users.PasswordSalt, S_Users.IsActive,
                     S_Users.FailedAttempts, S_Users.TokenVersion,
                     CASE WHEN IFNULL(S_Users.LockedUntil, DATETIME('now')) > DATETIME('now') THEN 1 ELSE 0 END AS Locked,
-                        S_UserRoles.RoleName
+                        S_UserRoles.RoleName,
+                        json_extract(ifnull(S_Users.JsonData, '{}'), '$.end_date') AS EndDate
                     FROM S_Users, S_UserRoles
                     WHERE S_Users.RoleId = S_UserRoles.RoleId AND S_Users.UserEmail = ?"""
 
@@ -33,7 +34,8 @@ lock_user_account = """UPDATE S_Users SET LockedUntil = datetime(DATETIME('now')
 
 
 get_user_details = """SELECT S_UserRoles.RoleName, DisplayName, TokenVersion, IsActive,
-                        CASE WHEN IFNULL(S_Users.LockedUntil, DATETIME('now')) > DATETIME('now') THEN 1 ELSE 0 END AS Locked
+                        CASE WHEN IFNULL(S_Users.LockedUntil, DATETIME('now')) > DATETIME('now') THEN 1 ELSE 0 END AS Locked,
+                        json_extract(ifnull(S_Users.JsonData, '{}'), '$.end_date') AS EndDate
                          FROM S_Users, S_UserRoles
                         WHERE S_Users.RoleId = S_UserRoles.RoleId AND S_Users.UserEmail = ? """
 
@@ -68,3 +70,7 @@ get_modules = """SELECT Distinct ModuleName
 
 
 get_all_modules = "SELECT ModuleName FROM S_Modules"
+
+check_can_add_new_model = """SELECT json_extract(ifnull(S_UserRoles.JsonData, '{}'), '$.canAddNewModel')
+        FROM S_UserRoles
+        WHERE S_UserRoles.RoleName = ?"""

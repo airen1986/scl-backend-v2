@@ -29,6 +29,9 @@ from . import queries as queries
 
 logger = get_logger(__name__)
 
+ACTIVATION_CODE_PREFIX = "AC-"
+RESET_CODE_PREFIX = "RE-"
+
 
 def _hash_password(password: str, salt: bytes) -> str:
     # Include a dedicated pepper in the KDF input to harden derived hashes.
@@ -62,6 +65,16 @@ def _get_model_templates(cursor):
     return [t[0] for t in templates]
 
 
+def _is_user_expired(end_date_str: str | None) -> bool:
+    if not end_date_str:
+        return True
+    try:
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    except ValueError:
+        return True
+    return datetime.now(timezone.utc).date() > end_date
+
+
 def register_user(cursor, useremail: str, username: str, password: str):
     salt = os.urandom(16)
     password_hash = _hash_password(password, salt)
@@ -73,8 +86,10 @@ def register_user(cursor, useremail: str, username: str, password: str):
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
     model_templates = _get_model_templates(cursor)
+    default_end_date = (datetime.now(timezone.utc).date() + timedelta(days=365)).isoformat()
+    user_json_data = json.dumps({"end_date": default_end_date})
 
-    activation_code = os.urandom(3).hex()
+    activation_code = f"{ACTIVATION_CODE_PREFIX}{os.urandom(3).hex()}"
 
     cursor.execute(
         queries.create_user,
@@ -87,6 +102,7 @@ def register_user(cursor, useremail: str, username: str, password: str):
             activation_code,
             0,
             json.dumps(model_templates),
+            user_json_data,
         ),
     )
     cursor.execute(queries.add_default_project, (useremail, useremail))
@@ -106,6 +122,8 @@ def register_user(cursor, useremail: str, username: str, password: str):
 
 
 def activate_user(cursor, useremail: str, activation_code: str):
+    if not activation_code.startswith(ACTIVATION_CODE_PREFIX):
+        raise HTTPException(status_code=400, detail="Invalid activation code")
     row = cursor.execute(queries.get_status_activation_code, (useremail,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
@@ -127,7 +145,7 @@ def forgot_password(cursor, useremail: str):
     if status == 0:
         raise HTTPException(status_code=400, detail="User account is not active")
 
-    verification_code = os.urandom(8).hex()
+    verification_code = f"{RESET_CODE_PREFIX}{os.urandom(8).hex()}"
     cursor.execute(queries.update_password_reset_code, (verification_code, useremail))
     cursor.intermediate_commit()
 
@@ -142,6 +160,9 @@ def forgot_password(cursor, useremail: str):
 
 
 def reset_password(cursor, useremail: str, verification_code: str, password: str):
+    if not verification_code.startswith(RESET_CODE_PREFIX):
+        logger.warning("Password reset attempt failed due to invalid verification code prefix for user: %s", useremail)
+        raise HTTPException(status_code=400, detail="Password reset request unsuccessful")
     row = cursor.execute(queries.get_status_activation_code, (useremail,)).fetchone()
     if not row:
         logger.warning("Password reset attempt failed for non-existent user: %s", useremail)
@@ -182,11 +203,13 @@ def login_user(cursor, useremail: str, password: str):
     row = cursor.execute(queries.get_user_password, (useremail,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Invalid credentials")
-    password_hash_db, salt_db, is_active, failed_attempts, token_version, is_locked, role_name = row
+    password_hash_db, salt_db, is_active, failed_attempts, token_version, is_locked, role_name, end_date = row
     if is_active == 0:
         raise HTTPException(status_code=400, detail="User account is not active")
     if is_locked:
         raise HTTPException(status_code=400, detail="User account is locked")
+    if _is_user_expired(end_date):
+        raise HTTPException(status_code=400, detail="User account has expired")
 
     if token_version is None:
         token_version = 0
@@ -220,13 +243,15 @@ def _get_user_from_token(request: Request, response: Response):
         row = cursor.execute(queries.get_user_details, (useremail,)).fetchone()
         if not row:
             _delete_cookie_and_raise(response, 404, "User not found")
-        role_name, display_name, token_version_db, is_active, is_locked = row
+        role_name, display_name, token_version_db, is_active, is_locked, end_date = row
         if token_version_db != token_version:
             _delete_cookie_and_raise(response, 401, "Token has been revoked")
         if is_active == 0:
             _delete_cookie_and_raise(response, 400, "User account is not active")
         if is_locked:
             _delete_cookie_and_raise(response, 400, "User account is locked")
+        if _is_user_expired(end_date):
+            _delete_cookie_and_raise(response, 400, "User account has expired")
     return useremail, display_name, role_name
 
 
@@ -251,11 +276,13 @@ def change_password(cursor, useremail: str, current_password: str, new_password:
     row = cursor.execute(queries.get_user_password, (useremail,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
-    password_hash_db, salt_db, is_active, _, _, is_locked, _ = row
+    password_hash_db, salt_db, is_active, _, _, is_locked, _, end_date = row
     if is_active == 0:
         raise HTTPException(status_code=400, detail="User account is not active")
     if is_locked:
         raise HTTPException(status_code=400, detail="User account is locked")
+    if _is_user_expired(end_date):
+        raise HTTPException(status_code=400, detail="User account has expired")
 
     current_password_hash = _hash_password(current_password, salt_db)
     if current_password_hash != password_hash_db:
@@ -303,3 +330,17 @@ def get_modules(cursor, role_name: str) -> list[str]:
         params = ()
     rows = cursor.execute(module_query, params).fetchall()
     return [row[0] for row in rows]
+
+
+def check_can_add_new_model(cursor, role_name: str):
+    """Verify the user's role is permitted to add new models. Raises 403 if not."""
+    if role_name == "SUPER_ADMIN":
+        return  # Super admin can always add new models
+    row = cursor.execute(queries.check_can_add_new_model, (role_name,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=403, detail="Role not found")
+    can_add = row[0]
+    if can_add is None:
+        return  # Permission not configured; default to allowed for backward compatibility
+    if can_add == 0:
+        raise HTTPException(status_code=403, detail="You do not have permission to add new models")

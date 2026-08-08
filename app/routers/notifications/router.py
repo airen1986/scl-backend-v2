@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from app.connection import master_connection
-from app.routers.auth.methods import _get_user_from_token, check_module_access
+from app.routers.auth.methods import _get_user_from_token, check_can_add_new_model, check_module_access
 
 from . import methods as notification_methods
 from . import schemas as notification_schemas
@@ -62,6 +62,8 @@ def accept_model_share(
 
     with master_connection() as cursor:
         check_module_access(cursor, role_name, this_api)
+        if accept and create_new_copy:
+            check_can_add_new_model(cursor, role_name)
         notification_methods.accept_model_share(
             cursor, notification_id, accept, model_name, project_name, create_new_copy, useremail
         )

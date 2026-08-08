@@ -203,21 +203,48 @@ module_data = [
     ("UserManagement", "Manage user accounts and roles", "/api/user-management", "user-management.html"),
 ]
 
-admin_role = {"modules": [module[0] for module in module_data], "homePage": "home-page.html"}
-user_role = {"modules": [module[0] for module in module_data if module[0] != "Scheduler"], "homePage": "home-page.html"}
+admin_role = {
+    "modules": [module[0] for module in module_data],
+    "homePage": "home-page.html",
+    "canAddNewModel": True,
+}
+user_role = {
+    "modules": [module[0] for module in module_data if module[0] != "Scheduler"],
+    "homePage": "home-page.html",
+    "canAddNewModel": False,
+}
+power_user_role = {
+    "modules": [module[0] for module in module_data if module[0] != "Scheduler"],
+    "homePage": "home-page.html",
+    "canAddNewModel": True,
+}
 
 user_roles = [
     (1, "SUPER_ADMIN", "Administrator with full access", json.dumps(admin_role)),
     (2, "User", "Regular user with limited access", json.dumps(user_role)),
-    (3, "PowerUser", "Power user with extended access", json.dumps(user_role)),
+    (3, "PowerUser", "Power user with extended access", json.dumps(power_user_role)),
 ]
+
+migrate_missing_end_dates = """UPDATE S_Users
+SET JsonData = json_set(ifnull(JsonData, '{}'), '$.end_date', date('now', '+1 year'))
+WHERE json_extract(ifnull(JsonData, '{}'), '$.end_date') IS NULL"""
+
+set_super_admin_end_date = """UPDATE S_Users
+SET JsonData = json_set(ifnull(JsonData, '{}'), '$.end_date', '2099-01-01')
+WHERE RoleId = (SELECT RoleId FROM S_UserRoles WHERE RoleName = 'SUPER_ADMIN')"""
+
+
+def migrate_user_end_dates(cursor):
+    """Backfill missing end_date values and set SUPER_ADMIN users to never expire."""
+    cursor.execute(migrate_missing_end_dates)
+    cursor.execute(set_super_admin_end_date)
 
 
 def init_db() -> None:
     """
     Initialize the application's database schema and seed default user roles and model templates.
 
-    Creates all required tables (users, roles, projects, errors, models, backups, templates, notifications) if they do not exist and inserts two user roles ("Admin", "User") and two model templates ("Generic Data Model", "Supply Planning") using guarded inserts to avoid duplicates. This function does not handle database errors; any exceptions from the underlying DB operations will propagate to the caller.
+    Creates all required tables (users, roles, projects, errors, models, backups, templates, notifications) if they do not exist and inserts the default user roles and model templates using guarded inserts to avoid duplicates. It also runs a migration to backfill missing user end_date values and set SUPER_ADMIN users to never expire. This function does not handle database errors; any exceptions from the underlying DB operations will propagate to the caller.
     """
     logger.info("Initializing database schema")
     with master_connection() as cursor:
@@ -248,4 +275,5 @@ def init_db() -> None:
             cursor.execute(update_module_path, (module_path, module_name))
         for role_id, role_name, role_desc, json_data in user_roles:
             cursor.execute(insert_user_role, (role_id, role_name, role_desc, json_data, role_name))
+        migrate_user_end_dates(cursor)
     logger.info("Database schema initialization finished")
