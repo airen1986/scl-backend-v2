@@ -55,12 +55,14 @@ class AddNewUserRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str = Field(..., min_length=1)
 
+
 class AddNewRoleRequest(BaseModel):
     RoleName: str = Field(..., min_length=1)
     RoleDescription: str = Field(..., min_length=1)
     Modules: list[str] = Field(default_factory=list)
     HomePage: str = Field(..., min_length=1)
     CanAddNewModel: int = Field(..., ge=0, le=1)
+
 
 class UpdateUserRequest(BaseModel):
     UserEmail: str = Field(..., min_length=1)
@@ -70,6 +72,7 @@ class UpdateUserRequest(BaseModel):
     RoleName: str | None = Field(None, min_length=1)
     EndDate: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     MaxConcurrentRuns: int | None = Field(None, gt=0)
+
 
 class UpdateRoleRequest(BaseModel):
     RoleId: int = Field(..., gt=0)

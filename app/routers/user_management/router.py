@@ -89,6 +89,7 @@ def add_user(
 
     return user_schemas.MessageResponse(message="User added successfully")
 
+
 @router.post("/add-role", response_model=user_schemas.MessageResponse)
 def add_role(
     request: user_schemas.AddNewRoleRequest, user_data: tuple = Depends(_get_user_from_token)
@@ -102,6 +103,7 @@ def add_role(
 
     return user_schemas.MessageResponse(message="Role added successfully")
 
+
 @router.post("/update-user", response_model=user_schemas.MessageResponse)
 def update_user(
     request: user_schemas.UpdateUserRequest, user_data: tuple = Depends(_get_user_from_token)
@@ -114,6 +116,7 @@ def update_user(
         user_methods.update_user(cursor, request)
 
     return user_schemas.MessageResponse(message="User updated successfully")
+
 
 @router.post("/update-role", response_model=user_schemas.MessageResponse)
 def update_role(

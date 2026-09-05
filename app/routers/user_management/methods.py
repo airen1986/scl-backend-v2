@@ -1,10 +1,10 @@
 import json
 from datetime import datetime, timedelta, timezone
 
+from app.routers.auth.methods import forgot_password
+
 from . import queries as user_queries
 from . import schemas as user_schema
-
-from app.routers.auth.methods import forgot_password
 
 
 def _parse_json(value: str | None, default):
@@ -123,15 +123,22 @@ def add_new_user(cursor, user_data: user_schema.AddNewUserRequest):
     """
     access_templates = json.dumps(user_data.Templates)
     other_data = json.dumps({"end_date": user_data.EndDate, "max_concurrent_runs": user_data.MaxConcurrentRuns})
-    row  = cursor.execute(
+    row = cursor.execute(
         user_queries.add_new_user,
-        (user_data.UserEmail, user_data.DisplayName, access_templates, other_data, 
-            user_data.RoleName, user_data.UserEmail),
+        (
+            user_data.UserEmail,
+            user_data.DisplayName,
+            access_templates,
+            other_data,
+            user_data.RoleName,
+            user_data.UserEmail,
+        ),
     ).fetchone()
     if row is None:
         raise ValueError(f"User with email {user_data.UserEmail} already exists.")
     forgot_password(cursor, user_data.UserEmail)  # Send forgot password email to the new user
     return
+
 
 def add_new_role(cursor, role_data: user_schema.AddNewRoleRequest):
     """
@@ -208,11 +215,24 @@ def update_user(cursor, user_data: user_schema.UpdateUserRequest):
         other_data["end_date"] = user_data.EndDate
     if user_data.MaxConcurrentRuns:
         other_data["max_concurrent_runs"] = user_data.MaxConcurrentRuns
+
     other_data = json.dumps(other_data)
+    role_id = None
+    if user_data.RoleName:
+        role_id_row = cursor.execute(user_queries.get_role_id, (user_data.RoleName,)).fetchone()
+        if role_id_row is None:
+            raise ValueError(f"Role with name {user_data.RoleName} does not exist.")
+        role_id = role_id_row[0]
     row = cursor.execute(
         user_queries.update_user,
-        (user_data.DisplayName, user_data.IsActive, access_templates, user_data.RoleName, 
-         other_data, user_data.UserEmail),
+        (
+            user_data.DisplayName,
+            user_data.IsActive,
+            access_templates,
+            role_id if user_data.RoleName else None,
+            other_data,
+            user_data.UserEmail,
+        ),
     ).fetchone()
     if row is None:
         raise ValueError(f"User with email {user_data.UserEmail} does not exist.")

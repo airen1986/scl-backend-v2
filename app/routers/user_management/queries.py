@@ -30,7 +30,9 @@ add_new_role = """INSERT INTO S_UserRoles (RoleName, RoleDescription, CreatedAt,
 update_role = """UPDATE S_UserRoles
                 SET RoleName = COALESCE(?, RoleName),
                     RoleDescription = COALESCE(?, RoleDescription),
-                    JsonData = CASE WHEN ? IS NULL THEN JsonData ELSE ? END,
+                    JsonData = CASE WHEN ? IS NULL THEN JsonData
+                                ELSE json_patch(COALESCE(JsonData, '{}'), ?)
+                               END,
                     UpdatedAt = CURRENT_TIMESTAMP
                 WHERE RoleId = ?
                 RETURNING 1"""
@@ -39,7 +41,10 @@ update_user = """UPDATE S_Users
                 SET DisplayName = COALESCE(?, DisplayName),
                     IsActive = COALESCE(?, IsActive),
                     AccessTemplates = COALESCE(?, AccessTemplates),
-                    RoleId = COALESCE((SELECT RoleId FROM S_UserRoles WHERE RoleName = ?), RoleId),
+                    RoleId = COALESCE(?, RoleId),
                     JsonData = json_patch( COALESCE(JsonData, '{}'), ?)
-                WHERE UserEmail = ? 
+                WHERE UserEmail = ?
                 RETURNING 1"""
+
+
+get_role_id = "select RoleId from S_UserRoles where RoleName = ?"
